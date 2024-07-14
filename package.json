@@ -1,15 +1,36 @@
 {
   "name": "@zirion/ioc",
   "description": "IoC implementation using dependency injection",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "packageManager": "yarn@4.3.0",
   "type": "module",
+  "keywords": [
+    "Dependency Injection",
+    "IoC Container",
+    "Inversion of Control",
+    "IoC",
+    "DI",
+    "Inject",
+    "Dependency",
+    "DI Container",
+    "Service Locator",
+    "Dependency Management",
+    "Object Lifecycle",
+    "DI Framework",
+    "Constructor Injection",
+    "Singleton Pattern",
+    "Multiple Scopes",
+    "Scopes",
+    "Dependency Resolution",
+    "Clean Architecture",
+    "Solid"
+  ],
   "scripts": {
-    "build": "rm -rf build && tsc -p .",
-    "prepublishOnly": "yarn build"
+    "build": "rm -rf build && tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json",
+    "prepublishOnly": "yarn build",
+    "lint": "eslint ./src/**/*.ts",
+    "test": "echo \"No tests implemented\"; exit -1"
   },
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
   "homepage": "https://github.com/ZirionNeft/ioc",
   "repository": {
     "type": "git",
@@ -17,7 +38,18 @@
   },
   "license": "MIT",
   "exports": {
-    ".": "./build/index.js"
+    ".": {
+      "types": "./build/types/index.d.ts",
+      "require": "./build/cjs/index.js",
+      "import": "./build/esm/index.js",
+      "default": "./build/esm/index.js"
+    },
+    "./container": {
+      "types": "./build/types/container/index.d.ts",
+      "require": "./build/cjs/container/index.js",
+      "import": "./build/esm/container/index.js",
+      "default": "./build/esm/container/index.js"
+    }
   },
   "engines": {
     "node": ">=18"
@@ -28,8 +60,6 @@
     "@types/node": "20.14.10",
     "eslint": "9.7.0",
     "eslint-config-prettier": "9.1.0",
-    "ts-node": "10.9.2",
-    "tsx": "4.16.2",
     "typescript": "5.5.3",
     "typescript-eslint": "7.16.0"
   },

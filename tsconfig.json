@@ -7,14 +7,10 @@
     "build"
   ],
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
     "types": [
       "node"
     ],
-    "declaration": true,
     "useDefineForClassFields": true,
-    "verbatimModuleSyntax": true,
     "removeComments": false,
     "esModuleInterop": true,
     "target": "ES2020",
@@ -22,7 +18,6 @@
       "ESNext"
     ],
     "sourceMap": true,
-    "outDir": "build",
     "baseUrl": "./",
     "skipLibCheck": true,
     "rootDir": "src",

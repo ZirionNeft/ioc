@@ -5,7 +5,7 @@ export type Type<T = any> = new (...args: any[]) => T;
 export type MaybePromise<T> = T | Promise<T>;
 
 export type TStorageValue<T, C> =
-  | ((context?: C, ...args: any[]) => MaybePromise<ThisType<T>>)
+  | ((...args: [...any[], context: C | undefined]) => MaybePromise<ThisType<T>>)
   | ThisType<T>
   | null;
 

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "verbatimModuleSyntax": true,
+    "outDir": "build/esm",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  }
+}
