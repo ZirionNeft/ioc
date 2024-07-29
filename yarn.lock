@@ -58,6 +58,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@eslint/js@npm:9.8.0":
+  version: 9.8.0
+  resolution: "@eslint/js@npm:9.8.0"
+  checksum: 10c0/42edaae6b020436410454579509dcb6a8cd5b260e9f18e037fd803ae28d35eb13663d4019f0ab8ba686a19d3c4a43b0e11394c148e23345377ab694da0e83262
+  languageName: node
+  linkType: hard
+
 "@eslint/object-schema@npm:^2.1.4":
   version: 2.1.4
   resolution: "@eslint/object-schema@npm:2.1.4"
@@ -270,7 +277,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zirion/ioc@workspace:."
   dependencies:
-    "@eslint/js": "npm:9.7.0"
+    "@eslint/js": "npm:9.8.0"
     "@types/eslint__js": "npm:8.42.3"
     "@types/node": "npm:20.14.10"
     eslint: "npm:9.7.0"
