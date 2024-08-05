@@ -1,5 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  "exclude": [
+    "test",
+    "vitest.config.ts"
+  ],
   "compilerOptions": {
     "verbatimModuleSyntax": false,
     "outDir": "build/cjs",

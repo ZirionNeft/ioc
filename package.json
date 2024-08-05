@@ -28,9 +28,9 @@
   "scripts": {
     "build": "rm -rf build && tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json",
     "lint": "eslint ./src/**/*.ts",
-    "test": "vitest",
+    "test": "vitest --run",
     "coverage": "vitest run --coverage",
-    "prepack": "yarn lint",
+    "prepack": "yarn lint && yarn test --silent",
     "prepublish": "yarn build"
   },
   "homepage": "https://github.com/ZirionNeft/ioc",
