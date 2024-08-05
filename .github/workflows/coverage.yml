@@ -22,6 +22,8 @@ jobs:
           corepack enable
           yarn install
           yarn coverage
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: codecov/codecov-action@v4
         with:
           flags: unittests
