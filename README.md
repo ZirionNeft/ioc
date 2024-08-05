@@ -1,5 +1,6 @@
 # @zirion/ioc
 [![npm version](https://badge.fury.io/js/@zirion%2Fioc.svg)](https://badge.fury.io/js/@zirion%2Fioc)
+[![codecov](https://codecov.io/gh/ZirionNeft/ioc/graph/badge.svg?token=7802XYCAVN)](https://codecov.io/gh/ZirionNeft/ioc)
 
 An IoC (Inversion of Control) implementation using dependency injection for Node.js.
 
@@ -125,5 +126,5 @@ Contributions are welcome! Please read the [contribution guidelines](CONTRIBUTIN
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
 
