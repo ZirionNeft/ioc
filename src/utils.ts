@@ -11,3 +11,20 @@ export function isClassConstructor(arg: any): arg is Type {
   }
   return true;
 }
+
+export function targetName<T>(target: T): string {
+  if (!target) {
+    return `${typeof target}_target`;
+  }
+  if (typeof target === 'string') {
+    return target;
+  }
+  if (isClassConstructor(target)) {
+    return target.name;
+  }
+  if (typeof target === 'function') {
+    return target.name;
+  }
+
+  return target.toString();
+}

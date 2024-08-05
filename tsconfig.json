@@ -1,6 +1,8 @@
 {
   "include": [
-    "src"
+    "src",
+    "test",
+    "vitest.config.ts"
   ],
   "exclude": [
     "node_modules",
@@ -10,6 +12,10 @@
     "types": [
       "node"
     ],
+    "moduleResolution": "NodeNext",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "module": "NodeNext",
     "useDefineForClassFields": true,
     "removeComments": false,
     "esModuleInterop": true,

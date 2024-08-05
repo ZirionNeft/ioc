@@ -33,6 +33,7 @@ yarn add @zirion/ioc
 - More ways to inject - property, method
 - More lifetimes - transient
 - Circular dependencies check
+- Isolated dependency groups
 - Lazy initialization configuration *(Currently all registered providers are lazy initable)*
 - More lifecycle hooks
 - Decorators Stage-3 support

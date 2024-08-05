@@ -1,7 +1,7 @@
 {
   "name": "@zirion/ioc",
   "description": "IoC implementation using dependency injection",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "packageManager": "yarn@4.3.0",
   "type": "module",
   "keywords": [
@@ -28,7 +28,8 @@
   "scripts": {
     "build": "rm -rf build && tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json",
     "lint": "eslint ./src/**/*.ts",
-    "test": "echo \"No tests implemented\"; exit -1",
+    "test": "vitest",
+    "coverage": "vitest run --coverage",
     "prepack": "yarn lint",
     "prepublish": "yarn build"
   },
@@ -38,6 +39,9 @@
     "url": "git@github.com:ZirionNeft/ioc.git"
   },
   "license": "MIT",
+  "imports": {
+    "#base/*": "./src/*.js"
+  },
   "exports": {
     ".": {
       "types": "./build/types/index.d.ts",
@@ -56,13 +60,15 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "@eslint/js": "9.7.0",
+    "@eslint/js": "10.0.0",
     "@types/eslint__js": "8.42.3",
-    "@types/node": "20.14.10",
-    "eslint": "9.7.0",
+    "@types/node": "20.14.12",
+    "@vitest/coverage-v8": "2.0.5",
+    "eslint": "9.8.0",
     "eslint-config-prettier": "9.1.0",
-    "typescript": "5.5.3",
-    "typescript-eslint": "7.16.0"
+    "typescript": "5.5.4",
+    "typescript-eslint": "7.17.0",
+    "vitest": "2.0.4"
   },
   "files": [
     "build"
