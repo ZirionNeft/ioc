@@ -2,7 +2,7 @@ import {
   Container,
   DependencyInjectionError,
   ErrorCode,
-  InjectScope,
+  InjectScope, type IOnFinalized,
   type ITargetOptions,
 } from '#base/index';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -280,6 +280,31 @@ describe('get()', () => {
       throw new Error('Test failed');
     });
   });
+
+  describe('lifecycle hooks', () => {
+    it('should call onFinalized() methods when finalyze() called', async () => {
+      class Test1 implements IOnFinalized {
+        onFinalized() {}
+      }
+      class Test2 implements IOnFinalized {
+        onFinalized() {
+          return Promise.resolve(123 as any)
+        }
+      }
+
+      vi.spyOn(Test1.prototype, 'onFinalized');
+      const spy2 = vi.spyOn(Test2.prototype, 'onFinalized');
+
+      await container.add(Test1).add(Test2).finalize();
+
+      const test1 = container.getOrFail(Test1);
+      expect(test1.onFinalized).toHaveBeenCalledOnce();
+
+      const test2 = container.getOrFail(Test2);
+      expect(test2.onFinalized).toHaveBeenCalledOnce();
+      expect(spy2.mock.results[0].value).resolves.toEqual(123);
+    })
+  })
 
   describe('getOrFail()', () => {
     it("Should call regular get() method if it's fine", () => {

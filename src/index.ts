@@ -172,7 +172,7 @@ export class Container {
     for (const target of this.#storage.keys()) {
       if (
         isClassConstructor(target) &&
-        typeof target.prototype['onFinalize'] === 'function'
+        typeof target.prototype['onFinalized'] === 'function'
       ) {
         const instance = this.getOrFail<IOnFinalized>(target);
         await instance.onFinalized();
