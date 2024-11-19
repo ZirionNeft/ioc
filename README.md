@@ -23,7 +23,8 @@ yarn add @zirion/ioc
 ```
 
 ## Features
-- Lightweight and easy to use
+- Lightweight
+- Multi-platform
 - Supports constructor method injection
 - Singleton and request lifetimes
 - Dependency resolution
@@ -31,7 +32,7 @@ yarn add @zirion/ioc
 - Code is free from dependencies
 
 ### Roadmap:
-- More ways to inject - property, method
+- More ways to inject: in properties, method args
 - More lifetimes - transient
 - Circular dependencies check
 - Isolated dependency groups
@@ -45,9 +46,11 @@ yarn add @zirion/ioc
 ## Usage
 ### Basic Usage
 
-Firstly we have `container` constant exported from the package. It our first point where starting on
+Firstly we have to create `container` instance. It our first point where starting on
 ```ts
-import container from '@zirion/ioc/container';
+import { Container } from '@zirion/ioc';
+
+const container = new Container();
 
 container.add('my_key', {
   value: {
@@ -61,10 +64,12 @@ const obj = container.get('my_key');
 console.log(obj.data);
 ```
 
-Let's take a look to how to use a thing in the simpliest way:
+Let's take a look at how to use it in the simplest way:
 
 ```ts
-import container from '@zirion/ioc/container'
+import { Container } from '@zirion/ioc';
+
+const container = new Container();
 
 class ThemService {
   // ...
@@ -83,7 +88,7 @@ class MyService {
 container
   // Providers order is important!
   .add(ThemService)
-  .add(MyService, { inject: [ThemService] })
+  .add(MyService, {inject: [ThemService]})
   // End builder with calling this function to run our hooks
   .finalize()
 
@@ -96,8 +101,9 @@ const myService = container.get(MyService)
 Context scoped provider case:
 
 ```ts
-import container from '@zirion/ioc/container'
-import { InjectScope } from '@zirion/ioc';
+import { Container, InjectScope } from '@zirion/ioc';
+
+const container = new Container();
 
 class MyService {
   constructor(context) {
@@ -118,7 +124,7 @@ const myContext = {
 const myService = container.get(MyService, myContext);
 ```
 
-Also, there is some rule:
+Also, there are some rules:
 - Request-scoped instance **CAN'T** be injected into singletone-scoped one
 
 ## Contributing

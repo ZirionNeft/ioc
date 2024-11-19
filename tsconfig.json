@@ -9,31 +9,21 @@
     "build"
   ],
   "compilerOptions": {
-    "types": [
-      "node"
-    ],
     "moduleResolution": "NodeNext",
-    "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "module": "NodeNext",
     "useDefineForClassFields": true,
     "removeComments": false,
     "esModuleInterop": true,
     "target": "ES2020",
-    "lib": [
-      "ESNext"
-    ],
     "sourceMap": true,
     "baseUrl": "./",
     "skipLibCheck": true,
     "rootDir": "src",
     "strictNullChecks": true,
-    "noImplicitAny": false,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "alwaysStrict": true,
-    "allowJs": false,
-    "checkJs": false,
   },
   "ts-node": {
     "esm": true

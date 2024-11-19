@@ -187,7 +187,7 @@ describe('get()', () => {
         inject: ['SomeTarget'],
       });
 
-      const resolved = container.get(TestClass);
+      const resolved = container.getOrFail(TestClass);
       expect(resolved).toBeInstanceOf(TestClass);
       expect(resolved.value).toEqual(123);
     });
@@ -224,7 +224,7 @@ describe('get()', () => {
       });
 
       const context = {};
-      const resolved = container.get(TestClass, context);
+      const resolved = container.getOrFail(TestClass, context);
 
       expect(resolved).toBeInstanceOf(TestClass);
       expect(resolved.value).toEqual(124);
@@ -233,7 +233,7 @@ describe('get()', () => {
 
     it('Should throw if trying to inject request-scoped target inside singletone', () => {
       class TestClass {
-        constructor(_dependency) {}
+        constructor(_dependency: unknown) {}
       }
 
       container
@@ -257,10 +257,10 @@ describe('get()', () => {
     });
 
     it('Should throw if trying to inject unregistered target', () => {
-      class TestClass {
-        constructor(_dependency) {}
-      }
       class Eee {}
+      class TestClass {
+        constructor(e: Eee) {}
+      }
 
       container.add(TestClass, {
         inject: [Eee],
@@ -302,7 +302,7 @@ describe('get()', () => {
 
       const test2 = container.getOrFail(Test2);
       expect(test2.onFinalized).toHaveBeenCalledOnce();
-      expect(spy2.mock.results[0].value).resolves.toEqual(123);
+      await expect(spy2.mock.results[0].value).resolves.toEqual(123);
     })
   })
 
