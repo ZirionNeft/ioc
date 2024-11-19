@@ -1,0 +1,17 @@
+changelog:
+  categories:
+    - title: Breaking Changes 🛠
+      labels:
+        - Semver-Major
+        - breaking-change
+    - title: What's new 🎉
+      labels:
+        - Semver-Minor
+        - enhancement
+    - title: Fix
+      labels:
+        - Semver-Patch
+        - fix
+    - title: Other Changes
+      labels:
+        - "*"
