@@ -5,7 +5,7 @@ import type {
   IOnFinalized,
   TSelector,
   ITargetOptions,
-  IStorageEntry,
+  IStorageEntry, Type,
 } from './types.js';
 import { isClassConstructor, targetName } from './utils.js';
 
@@ -19,6 +19,8 @@ export class Container {
    * The method throws an error if the `target` is not provided or if the `target` already exists in the storage.
    *
    * If the `scope` of `provider` is `request` then a `WeakMap` is also added to the `contextMap` of the `storageEntry`.
+   *
+   * @template Selector - The type that extends TSelector.
    *
    * @param {Selector} target - The identifier used for the provider.
    * @param {ITargetOptions<Selector>} [options={}] - Additional configuration for the provider.
@@ -70,18 +72,21 @@ export class Container {
    * This method gets an instance of the class or value associated with the provided selector from the container.
    * It throws an error if the selector has not been registered in the container.
    *
+   * @template {TSelector} Selector - The type that extends TSelector.
+   * @template {Record<any, any>} Context - The type representing the context object provided when the provider is request-scoped.
+   * @template {Type} Result - Some value got from container by selector
+   * 
    * @param {Selector} target - The class/constructor or value to get from the container.
-   * @param {Context} context - Optional context if the requested provider is request-scoped.
+   * @param {Context} [context] - Optional context if the requested provider is request-scoped.
    *
-   * @throws {DependencyInjectionError} - If the selector has not been registered in the container.
+   * @throws {DependencyInjectionError} - If the target has not been registered in the container.
    *
    * @returns {Result} - The instance associated with the selector if it exists, otherwise null.
    */
   getOrFail<
-    T = any,
     Context extends Record<any, any> = Record<any, any>,
     Selector extends TSelector = TSelector,
-    Result = T extends Record<any, any> ? T : ThisType<Selector>,
+    Result = Selector extends Type<infer A> ? A : unknown,
   >(target: Selector, context?: Context): Result {
     if (!this.#storage.has(target)) {
       throw new DependencyInjectionError(
@@ -90,24 +95,27 @@ export class Container {
       );
     }
 
-    return this.get<T, Context, Selector, Result>(target, context)!;
+    return this.get<Context, Selector, Result>(target, context)!;
   }
 
   /**
    * This method gets an instance of the class or value associated with the provided selector from the container.
    * It returns null if the selector has not been registered in the container.
    *
-   * @param {Selector} target - The class/constructor or value to get from the container.
-   * @param {Context} context - Optional context if the requested provider is request-scoped.
+   * @template {TSelector} Selector - The type that extends TSelector.
+   * @template {Record<any, any>} Context - The type representing the context object provided when the provider is request-scoped.
+   * @template {Type} Result - Some value got from container by selector
+   *
+   * @param {Selector} selector - The class/constructor or value to get from the container.
+   * @param {Context} [context] - Optional context if the requested provider is request-scoped.
    * @returns {Result | null} - The instance associated with the selector if it exists, otherwise null.
    */
   get<
-    T = any,
     Context extends Record<any, any> = Record<any, any>,
     Selector extends TSelector = TSelector,
-    Result = T extends Record<any, any> ? T : ThisType<Selector>,
-  >(target: Selector, context?: Context): Result | null {
-    const storageEntry = this.#storage.get(target);
+    Result = Selector extends Type<infer A> ? A : unknown,
+  >(selector: Selector, context?: Context): Result | null {
+    const storageEntry = this.#storage.get(selector);
 
     if (!storageEntry) {
       return null;
@@ -117,7 +125,7 @@ export class Container {
 
     switch (storageEntry.scope) {
       case InjectScope.SINGLETON: {
-        const instance = this.#resolveBasedOnKeyKind(target, storageEntry);
+        const instance = this.#resolveBasedOnKeyKind(selector, storageEntry);
 
         storageEntry.value ??= instance;
 
@@ -130,8 +138,8 @@ export class Container {
         if (!context || typeof context !== 'object') {
           throw new DependencyInjectionError(
             ErrorCode.REQUEST_SCOPE_CONTEXT_REQUIRED,
-            `Target '${targetName(target)}' is request-scoped and must have context object as second argument in get() call`,
-            target,
+            `Target '${targetName(selector)}' is request-scoped and must have context object as second argument in get() call`,
+            selector,
           );
         }
 
@@ -140,7 +148,7 @@ export class Container {
 
         if (!requestStorageEntry.contextMap.has(context)) {
           const instance = this.#resolveBasedOnKeyKind(
-            target,
+            selector,
             storageEntry,
             context,
           );
@@ -155,8 +163,8 @@ export class Container {
       default:
         throw new DependencyInjectionError(
           ErrorCode.UNKNOWN_SCOPE,
-          `Unknown scope '${storageEntry.scope}' of target '${targetName(target)}'`,
-          target,
+          `Unknown scope '${storageEntry.scope}' of target '${targetName(selector)}'`,
+          selector,
         );
     }
 
@@ -168,7 +176,6 @@ export class Container {
    * @return {Promise<void>}
    */
   async finalize(): Promise<void> {
-    // TODO: rework to event emitter?
     for (const target of this.#storage.keys()) {
       if (
         isClassConstructor(target) &&
@@ -232,7 +239,7 @@ export class Container {
         if (!dependencyInstanceData) {
           throw new DependencyInjectionError(
             ErrorCode.UNKNOWN_TARGET,
-            `Unknown instance provider '${targetName(dependencyTarget)}' when resolving target '${targetName(target)}'. Make sure that dependency is registered before the target using '.add()'.`,
+            `Unknown instance provider '${targetName(dependencyTarget)}' when resolving target '${targetName(target)}'. Make sure that in container dependency is registered earlier than the target.`,
           );
         }
 
