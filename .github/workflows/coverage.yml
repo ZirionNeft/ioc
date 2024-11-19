@@ -29,4 +29,5 @@ jobs:
           flags: unittests
           fail_ci_if_error: true
           verbose: true
+          require_bundle_changes: true
           token: ${{ secrets.CODECOV_TOKEN }}
