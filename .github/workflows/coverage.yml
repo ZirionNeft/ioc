@@ -14,20 +14,19 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 18.x
+          node-version: 20.x
       - run: |
           corepack enable
           yarn install
           yarn coverage
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           flags: unittests
           fail_ci_if_error: true
           verbose: true
-          require_bundle_changes: true
           token: ${{ secrets.CODECOV_TOKEN }}
