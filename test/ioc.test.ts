@@ -2,26 +2,28 @@ import {
   Container,
   DependencyInjectionError,
   ErrorCode,
-  InjectScope, type IOnFinalized,
-  type ITargetOptions,
+  InjectScope,
+  type IOnFinalized,
+  type IOnInitialized,
+  type TTargetOptions,
 } from '#base/index';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Testing "add()" method', () => {
-  let container: Container;
+  let container: Container<any>;
 
   beforeEach(() => {
     container = new Container();
   });
 
   it('Should add a provider to the container', () => {
-    const options: ITargetOptions<string> = {
-      value: 'test',
+    const options: TTargetOptions = {
+      valueFactory: () => 'test',
       inject: [],
       scope: InjectScope.SINGLETON,
     };
 
-    expect(() => container.add<string>('test', options)).not.toThrow();
+    expect(() => container.add('test', options)).not.toThrow();
   });
 
   it('Should throw an error when the target is null', () => {
@@ -38,6 +40,7 @@ describe('Testing "add()" method', () => {
 
     throw new Error('Test failed');
   });
+
   it('Should throw an error when the target is undefined', () => {
     try {
       container.add(undefined as any);
@@ -53,11 +56,11 @@ describe('Testing "add()" method', () => {
     throw new Error('Test failed');
   });
 
-  it('Should throw an error when the target is already registered', () => {
-    container.add<string>('test');
+  it('Should throw an error when the target is already registered', async () => {
+    container.add('test');
 
     try {
-      container.add<string>('test');
+      container.add('test');
     } catch (e: any) {
       expect(e).instanceOf(DependencyInjectionError);
       expect(
@@ -71,93 +74,151 @@ describe('Testing "add()" method', () => {
   });
 });
 
-describe('get()', () => {
-  let container: Container;
+describe('Testing "get()" method', () => {
+  let container: Container<any>;
 
   beforeEach(() => {
     container = new Container();
   });
 
-  it('Should return null when the selector has not been registered', () => {
-    expect(container.get('NonexistentTarget')).toBeNull();
+  it('Should return null when the selector has not been registered', async () => {
+    await expect(container.get('NonexistentTarget')).resolves.toBeNull();
   });
 
-  it('Should return the instance associated with the selector if it exists', () => {
+  it('Should return the instance associated with the selector if it exists', async () => {
     const target = 'TestSelector';
 
-    container.add(target, {
-      value: 'TestValue',
-    });
+    await container
+      .add(target, {
+        valueFactory: () => 'TestValue',
+      })
+      .finalize();
 
-    expect(container.get(target)).toEqual('TestValue');
+    await expect(container.get(target)).resolves.toEqual('TestValue');
   });
 
-  it('Should handle the singleton scope appropriately', () => {
-    const A = vi.fn(() => ({}));
+  it('Should handle the singleton scope appropriately', async () => {
+    const spyFn = vi.fn();
 
-    container.add(A);
+    class C {
+      constructor() {
+        spyFn();
+      }
+    }
 
-    container.get(A);
-    container.get(A);
-    container.get(A);
+    await container.add(C).finalize();
 
-    expect(A).has.been.toBeCalledTimes(1);
+    await container.get(C);
+    await container.get(C);
+    await container.get(C);
+
+    expect(spyFn).toHaveBeenCalledOnce();
   });
 
-  it('Should handle the request scope appropriately', () => {
+  it('Should handle the request scope appropriately', async () => {
     const target: any = {};
-    container.add(target, {
-      scope: InjectScope.REQUEST,
-      value: 'RequestValue',
-    });
+
+    await container
+      .add(target, {
+        scope: InjectScope.REQUEST,
+        valueFactory: () => 'RequestValue',
+      })
+      .finalize();
 
     const context = { request: 'TestContext' };
-    expect(() => container.get(target)).toThrow(DependencyInjectionError);
-    expect(() => container.get(target, context)).not.toThrow();
 
-    expect(container.get(target, context)).toEqual('RequestValue');
+    await expect(container.get(target)).rejects.toThrow(
+      DependencyInjectionError,
+    );
+    await expect(container.get(target, context)).resolves.not.toThrow();
+
+    await expect(container.get(target, context)).resolves.toEqual(
+      'RequestValue',
+    );
   });
 
-  it('Should throw an error for an unknown scope', () => {
+  it('Should throw an error for an unknown scope', async () => {
     const UNKNOWN_SCOPE = 'UnknownScope';
-    container.add(UNKNOWN_SCOPE, {
-      scope: 'Unknown' as InjectScope,
-    });
 
-    expect(() => container.get(UNKNOWN_SCOPE)).toThrow(
+    await container
+      .add(UNKNOWN_SCOPE, {
+        scope: 'Unknown' as InjectScope,
+      })
+      .finalize();
+
+    await expect(container.get(UNKNOWN_SCOPE)).rejects.toThrow(
       DependencyInjectionError,
     );
   });
 
-  it('Should return instance when target is a class constructor', () => {
+  it('Should return instance when target is a class constructor', async () => {
     class TestClass {}
 
-    container.add(TestClass);
+    await container.add(TestClass).finalize();
 
-    expect(container.get(TestClass)).toBeInstanceOf(TestClass);
+    await expect(container.get(TestClass)).resolves.toBeInstanceOf(TestClass);
   });
 
-  it('Should return value when target is a Symbol', () => {
+  it('Should return value when target is a Symbol', async () => {
     const sym = Symbol('test');
 
-    container.add(sym, {
-      value: 'TestValue',
-    });
+    await container
+      .add(sym, {
+        valueFactory: () => 'TestValue',
+      })
+      .finalize();
 
-    expect(container.get(sym)).toEqual('TestValue');
+    await expect(container.get(sym)).resolves.toEqual('TestValue');
   });
 
-  it('Should return resolved result when target is a function', () => {
-    container.add('K', { value: () => ({ some: 'value' }) });
+  it('Should return resolved result when target have a factory', async () => {
+    await container
+      .add('K', {
+        valueFactory: () => ({ some: 'value' }),
+      })
+      .finalize();
 
-    expect(container.get('K')).toEqual({ some: 'value' });
+    await expect(container.get('K')).resolves.toEqual({ some: 'value' });
   });
 
-  it('Should throw if target has null value and either is not a constructor', () => {
-    container.add('Aaa', {});
+  it('Should return resolved result when target have a factory with constructor', async () => {
+    class TestClass {}
+
+    await container
+      .add('aab', {
+        valueFactory: () => TestClass,
+      })
+      .finalize();
+
+    await expect(container.get('aab')).resolves.toBeInstanceOf(TestClass);
+  });
+
+  it('Should throw if valueFactory has not properly set', async () => {
+    await container
+      .add('A', {
+        valueFactory: {} as any,
+      })
+      .finalize();
 
     try {
-      expect(container.get('Aaa'));
+      await container.get('A');
+    } catch (e: any) {
+      expect(e).instanceOf(DependencyInjectionError);
+      expect(
+        e.hasCode(ErrorCode.TARGET_TYPE_BAD_RESOLVER),
+        `Wrong error code: ${e.code}`,
+      ).toBeTruthy();
+      return;
+    }
+
+    throw new Error('Test failed');
+  });
+
+  it('Should throw if target has null value and either is not a constructor', async () => {
+    await container.add('Aaa', {}).finalize();
+
+    try {
+      await container.get('Aaa');
     } catch (e: any) {
       expect(e).instanceOf(DependencyInjectionError);
       expect(
@@ -171,9 +232,10 @@ describe('get()', () => {
   });
 
   describe('Dependencies injecting', () => {
-    it('Should properly inject dependency in the singletone class constructor', () => {
+    it('Should properly inject dependency in the singletone class constructor', async () => {
       class TestClass {
         #value: number;
+
         constructor(dependency: number) {
           this.#value = dependency;
         }
@@ -183,28 +245,41 @@ describe('get()', () => {
         }
       }
 
-      container.add('SomeTarget', { value: 123 }).add(TestClass, {
-        inject: ['SomeTarget'],
-      });
+      await container
+        .add('SomeTarget', {
+          valueFactory: () => 123,
+        })
+        .add(TestClass, {
+          inject: ['SomeTarget'],
+        })
+        .finalize();
 
-      const resolved = container.getOrFail(TestClass);
+      const resolved = await container.getOrFail(TestClass);
       expect(resolved).toBeInstanceOf(TestClass);
       expect(resolved.value).toEqual(123);
     });
 
-    it('Should properly inject as arguments when target is a function', () => {
-      container
-        .add('A', { value: 'test1' })
-        .add('B', { value: 'test2' })
-        .add('K', { value: (a, b) => ({ a, b }), inject: ['A', 'B'] });
+    it('Should properly inject as arguments when target is a function', async () => {
+      await container
+        .add('A', { valueFactory: () => 'test1' })
+        .add('B', { valueFactory: () => 'test2' })
+        .add('K', {
+          valueFactory: ([a, b]) => ({ a, b }),
+          inject: ['A', 'B'],
+        })
+        .finalize();
 
-      expect(container.get('K')).toEqual({ a: 'test1', b: 'test2' });
+      await expect(container.get('K')).resolves.toEqual({
+        a: 'test1',
+        b: 'test2',
+      });
     });
 
-    it('Should properly inject dependency and context in the request-scoped class constructor', () => {
+    it('Should properly inject dependency and context in the request-scoped class constructor', async () => {
       class TestClass {
         #value: number;
         #context: Record<any, any>;
+
         constructor(dependency: number, context: Record<any, any>) {
           this.#value = dependency;
           this.#context = context;
@@ -213,37 +288,47 @@ describe('get()', () => {
         get value() {
           return this.#value;
         }
+
         get context() {
           return this.#context;
         }
       }
 
-      container.add('SomeTarget', { value: 124 }).add(TestClass, {
-        inject: ['SomeTarget'],
-        scope: InjectScope.REQUEST,
-      });
+      await container
+        .add('SomeTarget', {
+          valueFactory: () => 124,
+        })
+        .add(TestClass, {
+          inject: ['SomeTarget'],
+          scope: InjectScope.REQUEST,
+        })
+        .finalize();
 
       const context = {};
-      const resolved = container.getOrFail(TestClass, context);
+      const resolved = await container.getOrFail(TestClass, context);
 
       expect(resolved).toBeInstanceOf(TestClass);
       expect(resolved.value).toEqual(124);
       expect(resolved.context).toEqual(context);
     });
 
-    it('Should throw if trying to inject request-scoped target inside singletone', () => {
+    it('Should throw if trying to inject request-scoped target inside singletone', async () => {
       class TestClass {
         constructor(_dependency: unknown) {}
       }
 
-      container
-        .add('SomeTarget', { value: 123, scope: InjectScope.REQUEST })
+      await container
+        .add('SomeTarget', {
+          valueFactory: () => 123,
+          scope: InjectScope.REQUEST,
+        })
         .add(TestClass, {
           inject: ['SomeTarget'],
-        });
+        })
+        .finalize();
 
       try {
-        container.get(TestClass);
+        await container.get(TestClass);
       } catch (e: any) {
         expect(e).instanceOf(DependencyInjectionError);
         expect(
@@ -256,18 +341,21 @@ describe('get()', () => {
       throw new Error('Test failed');
     });
 
-    it('Should throw if trying to inject unregistered target', () => {
+    it('Should throw if trying to inject unregistered target', async () => {
       class Eee {}
+
       class TestClass {
         constructor(e: Eee) {}
       }
 
-      container.add(TestClass, {
-        inject: [Eee],
-      });
+      await container
+        .add(TestClass, {
+          inject: [Eee],
+        })
+        .finalize();
 
       try {
-        container.get(TestClass);
+        await container.get(TestClass);
       } catch (e: any) {
         expect(e).instanceOf(DependencyInjectionError);
         expect(
@@ -282,39 +370,104 @@ describe('get()', () => {
   });
 
   describe('lifecycle hooks', () => {
-    it('should call onFinalized() methods when finalyze() called', async () => {
+    it('should call onFinalized() methods when finalize() called', async () => {
       class Test1 implements IOnFinalized {
         onFinalized() {}
       }
+
       class Test2 implements IOnFinalized {
-        onFinalized() {
-          return Promise.resolve(123 as any)
+        async onFinalized() {
+          return 123 as any;
         }
       }
 
-      vi.spyOn(Test1.prototype, 'onFinalized');
+      const spy1 = vi.spyOn(Test1.prototype, 'onFinalized');
       const spy2 = vi.spyOn(Test2.prototype, 'onFinalized');
 
       await container.add(Test1).add(Test2).finalize();
 
-      const test1 = container.getOrFail(Test1);
-      expect(test1.onFinalized).toHaveBeenCalledOnce();
+      expect(spy1).toHaveBeenCalledOnce();
+      expect(spy2).toHaveBeenCalledOnce();
 
-      const test2 = container.getOrFail(Test2);
-      expect(test2.onFinalized).toHaveBeenCalledOnce();
       await expect(spy2.mock.results[0].value).resolves.toEqual(123);
-    })
-  })
-
-  describe('getOrFail()', () => {
-    it("Should call regular get() method if it's fine", () => {
-      container.add('SomeTarget', { value: 123 });
-      expect(container.getOrFail('SomeTarget')).toEqual(123);
     });
 
-    it('Should throw if target is not found', () => {
+    it('should call onInitialized() method when target initialized', async () => {
+      class Test1 implements IOnInitialized {
+        onInitialized() {}
+      }
+
+      class Test2 implements IOnInitialized {
+        async onInitialized() {}
+      }
+
+      vi.spyOn(Test1.prototype, 'onInitialized');
+      vi.spyOn(Test2.prototype, 'onInitialized');
+
+      await container
+        .add(Test1)
+        .add(Test2, {
+          inject: [Test1],
+        })
+        .finalize();
+
+      const test1 = await container.getOrFail(Test1);
+      expect(test1.onInitialized).toHaveBeenCalledOnce();
+
+      const test2 = await container.getOrFail(Test2);
+      expect(test2.onInitialized).toHaveBeenCalledOnce();
+    });
+
+    it('alias `build()` should work', async () => {
+      class Test1 {}
+
+      const spyFinalize = vi.spyOn(container, 'finalize');
+
+      await container.add(Test1).build();
+
+      expect(spyFinalize).toHaveBeenCalledOnce();
+    });
+
+    it('regular object onFinalized method should called', async () => {
+      const Test1: IOnFinalized = {
+        onFinalized() {},
+      };
+
+      const Test2: IOnFinalized = {
+        async onFinalized() {
+          return 123 as any;
+        },
+      };
+
+      const spy1 = vi.spyOn(Test1, 'onFinalized');
+      const spy2 = vi.spyOn(Test2, 'onFinalized');
+
+      await container
+        .add(Test1, {
+          valueFactory: () => Test1,
+        })
+        .add(Test2, {
+          valueFactory: () => Test2,
+        })
+        .finalize();
+
+      expect(spy1).toHaveBeenCalledOnce();
+      expect(spy2).toHaveBeenCalledOnce();
+
+      await expect(spy2.mock.results[0].value).resolves.toEqual(123);
+    });
+  });
+
+  describe('getOrFail()', () => {
+    it("Should call regular get() method if it's fine", async () => {
+      container.add('SomeTarget', { valueFactory: () => 123 });
+
+      await expect(container.getOrFail('SomeTarget')).resolves.toEqual(123);
+    });
+
+    it('Should throw if target is not found', async () => {
       try {
-        container.getOrFail('NonexistentTarget');
+        await container.getOrFail('NonexistentTarget');
       } catch (e: any) {
         expect(e).instanceOf(DependencyInjectionError);
         expect(e.hasCode(ErrorCode.UNKNOWN_TARGET)).toBeTruthy();
