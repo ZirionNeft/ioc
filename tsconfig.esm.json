@@ -2,7 +2,8 @@
   "extends": "./tsconfig.json",
   "exclude": [
     "test",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "eslint.config.ts"
   ],
   "compilerOptions": {
     "verbatimModuleSyntax": true,

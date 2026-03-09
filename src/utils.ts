@@ -1,18 +1,20 @@
 import type { Type } from './types.js';
 
-export function isClassConstructor(arg: any): arg is Type {
-  if (typeof arg !== 'function') return false;
+
+export function isClassConstructor (arg: any): arg is Type {
+  if (typeof arg !== 'function') {return false;}
 
   // Try to use the class to create an instance, catch any errors.
   try {
     Reflect.construct(String, [], arg);
-  } catch (e) {
+  } catch {
     return false;
   }
+
   return true;
 }
 
-export function targetName<T>(target: T): string {
+export function targetName<T> (target: T): string {
   if (!target) {
     return `${typeof target}_target`;
   }

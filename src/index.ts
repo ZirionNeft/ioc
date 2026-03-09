@@ -1,16 +1,42 @@
+import { DEFAULT_PROVIDER_OPTIONS, InjectScope } from './constants.js';
 import { ErrorCode } from './errors/constants.js';
 import { DependencyInjectionError } from './errors/dependency-injection.error.js';
-import { DEFAULT_PROVIDER_OPTIONS, InjectScope } from './constants.js';
+import { ConsoleLoggerImpl } from './logger/console-logger.impl.js';
+import type { ILogger } from './logger/types.js';
 import type {
   IOnFinalized,
+  TContainerOptions,
   TSelector,
-  ITargetOptions,
-  IStorageEntry, Type,
+  TStorageEntry,
+  TTargetOptions,
+  Type,
 } from './types.js';
 import { isClassConstructor, targetName } from './utils.js';
 
-export class Container {
-  readonly #storage = new Map<TSelector, IStorageEntry>();
+
+export const DEFAULT_OPTIONS: TContainerOptions = {
+  logger: ConsoleLoggerImpl,
+};
+
+export class Container<Items extends TSelector> {
+  readonly #storage = new Map<TSelector, TStorageEntry<Items>>();
+
+  readonly #options: TContainerOptions;
+
+  #logger!: ILogger;
+
+  constructor (options: Partial<TContainerOptions> = {}) {
+    this.#options = {
+      ...DEFAULT_OPTIONS,
+      ...options,
+    };
+
+    this.#initLogger();
+  }
+
+  get logger () {
+    return this.#logger;
+  }
 
   /**
    * Adds a new provider to the container storage.
@@ -18,25 +44,25 @@ export class Container {
    *
    * The method throws an error if the `target` is not provided or if the `target` already exists in the storage.
    *
-   * If the `scope` of `provider` is `request` then a `WeakMap` is also added to the `contextMap` of the `storageEntry`.
+   * If the `scope` of `provider` is `request`, then a `WeakMap` is also added to the `contextMap` of the `storageEntry`.
    *
    * @template Selector - The type that extends TSelector.
    *
    * @param {Selector} target - The identifier used for the provider.
-   * @param {ITargetOptions<Selector>} [options={}] - Additional configuration for the provider.
+   * @param {TTargetOptions} [options={}] - Additional configuration for the provider.
    *
    * @throws {DependencyInjectionError} - If `target` is not provided or already exists in the container.
    *
    * @returns {Container} - The container instance for method chaining.
    */
-  add<Selector extends TSelector>(
+  add<Selector extends TSelector> (
     target: Selector,
-    options: ITargetOptions<Selector> = {},
-  ): this {
+    options: TTargetOptions<Items> = {},
+  ): Container<Selector | Items> {
     options = {
       ...DEFAULT_PROVIDER_OPTIONS,
       ...options,
-    } as ITargetOptions<Selector>;
+    } as TTargetOptions<Items>;
 
     if (!target) {
       throw new DependencyInjectionError(
@@ -53,19 +79,18 @@ export class Container {
     }
 
     const storageEntry = {
-      value: options.value ?? null,
+      valueFactory: options.valueFactory ?? null,
       inject: options.inject,
       scope: options.scope,
-    } as IStorageEntry<Selector>;
+    } as TStorageEntry<Items>;
 
-    if (storageEntry.scope === 'request') {
-      (storageEntry as IStorageEntry<InjectScope.REQUEST>).contextMap =
-        new WeakMap();
+    if (storageEntry.scope === InjectScope.REQUEST) {
+      storageEntry.contextMap = new WeakMap();
     }
 
     this.#storage.set(target, storageEntry);
 
-    return this;
+    return this as Container<Selector | Items>;
   }
 
   /**
@@ -75,27 +100,30 @@ export class Container {
    * @template {TSelector} Selector - The type that extends TSelector.
    * @template {Record<any, any>} Context - The type representing the context object provided when the provider is request-scoped.
    * @template {Type} Result - Some value got from container by selector
-   * 
-   * @param {Selector} target - The class/constructor or value to get from the container.
+   *
+   * @param {Selector} selector - The class/constructor or value to get from the container.
    * @param {Context} [context] - Optional context if the requested provider is request-scoped.
    *
    * @throws {DependencyInjectionError} - If the target has not been registered in the container.
    *
-   * @returns {Result} - The instance associated with the selector if it exists, otherwise null.
+   * @returns {Promise<Result>} - The instance associated with the selector.
    */
   getOrFail<
     Context extends Record<any, any> = Record<any, any>,
-    Selector extends TSelector = TSelector,
-    Result = Selector extends Type<infer A> ? A : unknown,
-  >(target: Selector, context?: Context): Result {
-    if (!this.#storage.has(target)) {
+    Selector extends Items = Items,
+    Result = Selector extends Type<infer A> ? A : any,
+  > (selector: Selector, context?: Context): Promise<Result> {
+    if (!this.#storage.has(selector)) {
       throw new DependencyInjectionError(
         ErrorCode.UNKNOWN_TARGET,
-        `Target with selector '${targetName(target)}' is not registered`,
+        `Target with selector '${targetName(selector)}' is not registered`,
       );
     }
 
-    return this.get<Context, Selector, Result>(target, context)!;
+    return this.get<Context, Selector, Result>(
+      selector,
+      context,
+    ) as Promise<Result>;
   }
 
   /**
@@ -108,13 +136,13 @@ export class Container {
    *
    * @param {Selector} selector - The class/constructor or value to get from the container.
    * @param {Context} [context] - Optional context if the requested provider is request-scoped.
-   * @returns {Result | null} - The instance associated with the selector if it exists, otherwise null.
+   * @returns {Promise<Result | null>} - The instance associated with the selector if it exists, otherwise null.
    */
-  get<
+  async get<
     Context extends Record<any, any> = Record<any, any>,
-    Selector extends TSelector = TSelector,
-    Result = Selector extends Type<infer A> ? A : unknown,
-  >(selector: Selector, context?: Context): Result | null {
+    Selector extends Items = Items,
+    Result = Selector extends Type<infer A> ? A : any,
+  > (selector: Selector, context?: Context): Promise<Result | null> {
     const storageEntry = this.#storage.get(selector);
 
     if (!storageEntry) {
@@ -125,11 +153,16 @@ export class Container {
 
     switch (storageEntry.scope) {
       case InjectScope.SINGLETON: {
-        const instance = this.#resolveBasedOnKeyKind(selector, storageEntry);
+        if (!storageEntry.value) {
+          const instance = await this.#resolveBasedOnKeyKind(
+            selector,
+            storageEntry,
+          );
 
-        storageEntry.value ??= instance;
+          storageEntry.value = instance;
+        }
 
-        resultInstance = instance;
+        resultInstance = storageEntry.value;
 
         break;
       }
@@ -143,11 +176,14 @@ export class Container {
           );
         }
 
-        const requestStorageEntry =
-          storageEntry as IStorageEntry<InjectScope.REQUEST>;
+        const requestStorageEntry = storageEntry as TStorageEntry<
+          Items,
+          any,
+          InjectScope.REQUEST
+        >;
 
         if (!requestStorageEntry.contextMap.has(context)) {
-          const instance = this.#resolveBasedOnKeyKind(
+          const instance = await this.#resolveBasedOnKeyKind(
             selector,
             storageEntry,
             context,
@@ -172,34 +208,50 @@ export class Container {
   }
 
   /**
-   * Run this method after registering of all dependencies into container
+   * Run this method after all dependencies registered in the container
    * @return {Promise<void>}
    */
-  async finalize(): Promise<void> {
+  async finalize (): Promise<Container<Items>> {
     for (const target of this.#storage.keys()) {
       if (
-        isClassConstructor(target) &&
-        typeof target.prototype['onFinalized'] === 'function'
+        typeof target === 'object' &&
+        typeof (target as Record<any, any>).onFinalized === 'function'
       ) {
-        const instance = this.getOrFail<IOnFinalized>(target);
-        await instance.onFinalized();
+        await (target as IOnFinalized).onFinalized();
+        continue;
+      }
+
+      if (
+        isClassConstructor(target) &&
+        typeof (target as Record<any, any>)?.prototype?.onFinalized ===
+          'function'
+      ) {
+        const instance: IOnFinalized | null = await this.get(target as Items);
+        await instance?.onFinalized();
       }
     }
+
+    return this;
   }
 
-  #resolveBasedOnKeyKind<
-    Selector extends TSelector,
-    Context extends Record<any, any>,
-  >(
-    target: Selector,
-    storageEntry: IStorageEntry,
-    context?: Context,
-  ): ThisType<Selector> {
-    let instance: ThisType<Selector>;
+  /**
+   * Alias for `finalize()`
+   * @return {Promise<void>}
+   */
+  async build (): Promise<Container<Items>> {
+    return this.finalize();
+  }
 
-    if (!storageEntry.value) {
+  async #resolveBasedOnKeyKind<Context extends Record<any, any> = any> (
+    target: TSelector,
+    storageEntry: TStorageEntry<Items>,
+    context?: Context,
+  ): Promise<any> {
+    let instance: any;
+
+    if (!storageEntry.valueFactory) {
       if (isClassConstructor(target)) {
-        const targetArgs = this.#targetArgsFactory(
+        const targetArgs = await this.#targetArgsFactory(
           [target, storageEntry],
           context,
         );
@@ -212,24 +264,41 @@ export class Container {
           target,
         );
       }
-    } else if (typeof storageEntry.value === 'function') {
-      const targetArgs = this.#targetArgsFactory(
+    } else if (typeof storageEntry.valueFactory === 'function') {
+      const targetArgs = await this.#targetArgsFactory(
         [target, storageEntry],
         context,
       );
 
-      instance = storageEntry.value(...targetArgs, context);
+      const instanceOrClass = await storageEntry.valueFactory(
+        [...targetArgs],
+        context,
+      );
+
+      if (isClassConstructor(instanceOrClass)) {
+        instance = new instanceOrClass(...targetArgs, context);
+      } else {
+        instance = instanceOrClass;
+      }
     } else {
-      instance = storageEntry.value;
+      throw new DependencyInjectionError(
+        ErrorCode.TARGET_TYPE_BAD_RESOLVER,
+        `Target '${targetName(target)}' must have 'valueFactory' or be a class constructor`,
+        target,
+      );
+    }
+
+    if (typeof instance?.onInitialized === 'function') {
+      instance.onInitialized();
     }
 
     return instance;
   }
 
-  #targetArgsFactory<Context extends Record<any, any> = Record<any, any>>(
-    [target, targetOpts]: [TSelector, ITargetOptions<any>],
+  async #targetArgsFactory<Context extends Record<any, any> = Record<any, any>> (
+    [target, targetOpts]: [TSelector, TTargetOptions<any>],
     context?: Context,
-  ): Set<any> {
+  ): Promise<Set<any>> {
     const targetCtorArgs = new Set<any>([]);
 
     if (targetOpts.inject?.length) {
@@ -239,7 +308,8 @@ export class Container {
         if (!dependencyInstanceData) {
           throw new DependencyInjectionError(
             ErrorCode.UNKNOWN_TARGET,
-            `Unknown instance provider '${targetName(dependencyTarget)}' when resolving target '${targetName(target)}'. Make sure that in container dependency is registered earlier than the target.`,
+            `Unknown instance provider '${targetName(dependencyTarget)}' ` +
+            `when resolving target '${targetName(target)}'. Make sure that in container dependency is registered earlier than the target.`,
           );
         }
 
@@ -253,13 +323,26 @@ export class Container {
           );
         }
 
-        const dependencyInstance = this.get(dependencyTarget, context);
+        const dependencyInstance = await this.get(
+          dependencyTarget as Items,
+          context,
+        );
 
         targetCtorArgs.add(dependencyInstance);
       }
     }
 
     return targetCtorArgs;
+  }
+
+  #initLogger () {
+    if (isClassConstructor(this.#options.logger)) {
+      this.#logger = new this.#options.logger();
+    } else if (typeof this.#options.logger === 'function') {
+      this.#logger = this.#options.logger();
+    } else {
+      this.#logger = this.#options.logger;
+    }
   }
 }
 
@@ -268,3 +351,9 @@ export * from './errors/dependency-injection.error.js';
 export * from './constants.js';
 export * from './types.js';
 export * from './utils.js';
+
+/**
+ * Logger
+ */
+export * from './logger/types.js';
+export * from './logger/console-logger.impl.js';

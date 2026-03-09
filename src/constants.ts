@@ -6,3 +6,5 @@ export enum InjectScope {
 export const DEFAULT_PROVIDER_OPTIONS = {
   scope: InjectScope.SINGLETON,
 };
+
+export const Container = Symbol('Container');

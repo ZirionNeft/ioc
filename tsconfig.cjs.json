@@ -2,9 +2,11 @@
   "extends": "./tsconfig.json",
   "exclude": [
     "test",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "eslint.config.ts"
   ],
   "compilerOptions": {
+    "useDefineForClassFields": false,
     "verbatimModuleSyntax": false,
     "outDir": "build/cjs",
     "moduleResolution": "Node",
