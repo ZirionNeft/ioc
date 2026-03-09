@@ -4,6 +4,8 @@ on:
   - pull_request
 
 name: Coverage
+permissions:
+  contents: read
 
 concurrency:
   group: checks-${{ github.ref }}
