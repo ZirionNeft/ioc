@@ -1,5 +1,6 @@
 import type { ErrorCode } from './constants.js';
 
+
 /**
  * The `DependencyInjectionError` class represents an error thrown when
  * there are issues with the Dependency Injection process. This class extends
@@ -28,9 +29,9 @@ export class DependencyInjectionError extends Error {
    * @param {any} [target] - An optional parameter indicating the target object the cause the error occurred.
    * @param {any} [dependency] - An optional parameter indicating the specific dependency involved the target when the error occurred.
    */
-  constructor(
+  constructor (
     code: ErrorCode,
-    message: string = 'Dependency Injection error',
+    message = 'Dependency Injection error',
     target?: any,
     dependency?: any,
   ) {
@@ -47,7 +48,7 @@ export class DependencyInjectionError extends Error {
    * @param {ErrorCode} code - The error code to check against.
    * @returns {boolean} Returns true if the error code matches, otherwise false.
    */
-  hasCode(code: ErrorCode): boolean {
+  hasCode (code: ErrorCode): boolean {
     return this.code === code;
   }
 }
