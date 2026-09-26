@@ -1,16 +1,18 @@
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+
 import { Container } from '#base/index';
 import { ConsoleLoggerImpl } from '#base/logger/console-logger.impl';
 import type { ILogger } from '#base/logger/types';
-import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+
 
 describe('logger', () => {
   class CustomLogger implements ILogger {
-    error() {}
+    error () {}
 
-    warn() {}
-    info() {}
-    debug() {}
-    trace() {}
+    warn () {}
+    info () {}
+    debug () {}
+    trace () {}
   }
   CustomLogger.prototype.error = vi.fn();
   CustomLogger.prototype.warn = vi.fn();

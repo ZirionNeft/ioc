@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isClassConstructor, targetName } from '#base/utils';
 
+
 describe('isClassConstructor', () => {
   it('isClassConstructor returns true for class constructors', () => {
     class SomeClass {}

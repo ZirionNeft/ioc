@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import {
   Container,
   DependencyInjectionError,
@@ -7,7 +9,7 @@ import {
   type IOnInitialized,
   type TTargetOptions,
 } from '#base/index';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 
 describe('Testing "add()" method', () => {
   let container: Container<any>;
@@ -35,6 +37,7 @@ describe('Testing "add()" method', () => {
         e.hasCode(ErrorCode.TARGET_NULL),
         `Wrong error code: ${e.code}`,
       ).toBeTruthy();
+
       return;
     }
 
@@ -50,6 +53,7 @@ describe('Testing "add()" method', () => {
         e.hasCode(ErrorCode.TARGET_NULL),
         `Wrong error code: ${e.code}`,
       ).toBeTruthy();
+
       return;
     }
 
@@ -67,6 +71,7 @@ describe('Testing "add()" method', () => {
         e.hasCode(ErrorCode.TARGET_DUPLICATE),
         `Wrong error code: ${e.code}`,
       ).toBeTruthy();
+
       return;
     }
 
@@ -101,7 +106,7 @@ describe('Testing "get()" method', () => {
     const spyFn = vi.fn();
 
     class C {
-      constructor() {
+      constructor () {
         spyFn();
       }
     }
@@ -208,6 +213,7 @@ describe('Testing "get()" method', () => {
         e.hasCode(ErrorCode.TARGET_TYPE_BAD_RESOLVER),
         `Wrong error code: ${e.code}`,
       ).toBeTruthy();
+
       return;
     }
 
@@ -225,6 +231,7 @@ describe('Testing "get()" method', () => {
         e.hasCode(ErrorCode.TARGET_TYPE_BAD_RESOLVER),
         `Wrong error code: ${e.code}`,
       ).toBeTruthy();
+
       return;
     }
 
@@ -236,11 +243,11 @@ describe('Testing "get()" method', () => {
       class TestClass {
         #value: number;
 
-        constructor(dependency: number) {
+        constructor (dependency: number) {
           this.#value = dependency;
         }
 
-        get value(): number {
+        get value (): number {
           return this.#value;
         }
       }
@@ -280,16 +287,16 @@ describe('Testing "get()" method', () => {
         #value: number;
         #context: Record<any, any>;
 
-        constructor(dependency: number, context: Record<any, any>) {
+        constructor (dependency: number, context: Record<any, any>) {
           this.#value = dependency;
           this.#context = context;
         }
 
-        get value() {
+        get value () {
           return this.#value;
         }
 
-        get context() {
+        get context () {
           return this.#context;
         }
       }
@@ -314,7 +321,7 @@ describe('Testing "get()" method', () => {
 
     it('Should throw if trying to inject request-scoped target inside singletone', async () => {
       class TestClass {
-        constructor(_dependency: unknown) {}
+        constructor (_dependency: unknown) {}
       }
 
       await container
@@ -335,6 +342,7 @@ describe('Testing "get()" method', () => {
           e.hasCode(ErrorCode.SINGLETONE_SCOPE_WRONG_CONTEXT),
           `Wrong error code: ${e.code}`,
         ).toBeTruthy();
+
         return;
       }
 
@@ -345,7 +353,7 @@ describe('Testing "get()" method', () => {
       class Eee {}
 
       class TestClass {
-        constructor(e: Eee) {}
+        constructor (_e: Eee) {}
       }
 
       await container
@@ -362,6 +370,7 @@ describe('Testing "get()" method', () => {
           e.hasCode(ErrorCode.UNKNOWN_TARGET),
           `Wrong error code: ${e.code}`,
         ).toBeTruthy();
+
         return;
       }
 
@@ -372,11 +381,11 @@ describe('Testing "get()" method', () => {
   describe('lifecycle hooks', () => {
     it('should call onFinalized() methods when finalize() called', async () => {
       class Test1 implements IOnFinalized {
-        onFinalized() {}
+        onFinalized () {}
       }
 
       class Test2 implements IOnFinalized {
-        async onFinalized() {
+        async onFinalized () {
           return 123 as any;
         }
       }
@@ -394,11 +403,11 @@ describe('Testing "get()" method', () => {
 
     it('should call onInitialized() method when target initialized', async () => {
       class Test1 implements IOnInitialized {
-        onInitialized() {}
+        onInitialized () {}
       }
 
       class Test2 implements IOnInitialized {
-        async onInitialized() {}
+        async onInitialized () {}
       }
 
       vi.spyOn(Test1.prototype, 'onInitialized');
@@ -430,11 +439,11 @@ describe('Testing "get()" method', () => {
 
     it('regular object onFinalized method should called', async () => {
       const Test1: IOnFinalized = {
-        onFinalized() {},
+        onFinalized () {},
       };
 
       const Test2: IOnFinalized = {
-        async onFinalized() {
+        async onFinalized () {
           return 123 as any;
         },
       };
@@ -471,6 +480,7 @@ describe('Testing "get()" method', () => {
       } catch (e: any) {
         expect(e).instanceOf(DependencyInjectionError);
         expect(e.hasCode(ErrorCode.UNKNOWN_TARGET)).toBeTruthy();
+
         return;
       }
 
