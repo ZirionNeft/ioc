@@ -83,7 +83,7 @@
     "lint-staged": "16.4.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.57.1",
-    "vitest": "4.0.18"
+    "vitest": "4.1.11"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
