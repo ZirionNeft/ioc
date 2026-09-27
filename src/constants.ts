@@ -1,6 +1,7 @@
 export enum InjectScope {
   SINGLETON = 'singleton',
   REQUEST = 'request',
+  TRANSIENT = 'transient',
 }
 
 export const DEFAULT_PROVIDER_OPTIONS = {

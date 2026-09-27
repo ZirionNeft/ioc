@@ -250,6 +250,48 @@ describe('Testing "get()" method', () => {
     expect(factory).toHaveBeenCalledTimes(2);
   });
 
+  it('Should create a new transient value for every request', async () => {
+    const factory = vi.fn(async () => ({}));
+
+    container.add('TransientValue', {
+      scope: InjectScope.TRANSIENT,
+      valueFactory: factory,
+    });
+
+    const [first, second] = await Promise.all([
+      container.get('TransientValue'),
+      container.get('TransientValue'),
+    ]);
+    const third = await container.get('TransientValue');
+
+    expect(factory).toHaveBeenCalledTimes(3);
+    expect(first).not.toBe(second);
+    expect(second).not.toBe(third);
+  });
+
+  it('Should initialize each transient class without creating it during finalize', async () => {
+    const initialized = vi.fn();
+    const finalized = vi.fn();
+
+    class TransientService implements IOnInitialized, IOnFinalized {
+      onInitialized () { initialized(); }
+      onFinalized () { finalized(); }
+    }
+
+    container.add(TransientService, { scope: InjectScope.TRANSIENT });
+    await container.finalize();
+
+    expect(initialized).not.toHaveBeenCalled();
+    expect(finalized).not.toHaveBeenCalled();
+
+    const first = await container.get(TransientService);
+    const second = await container.get(TransientService);
+
+    expect(first).not.toBe(second);
+    expect(initialized).toHaveBeenCalledTimes(2);
+    expect(finalized).not.toHaveBeenCalled();
+  });
+
   it('Should throw an error for an unknown scope', async () => {
     const UNKNOWN_SCOPE = 'UnknownScope';
 
@@ -355,6 +397,79 @@ describe('Testing "get()" method', () => {
   });
 
   describe('Dependencies injecting', () => {
+    it('Should create a new transient dependency for each injection', async () => {
+      class Dependency {}
+
+      class Consumer {
+        constructor (
+          readonly first: Dependency,
+          readonly second: Dependency,
+        ) {}
+      }
+
+      container
+        .add(Dependency, { scope: InjectScope.TRANSIENT })
+        .add(Consumer, {
+          scope: InjectScope.TRANSIENT,
+          inject: [Dependency, Dependency],
+        });
+
+      const first = await container.getOrFail(Consumer);
+      const second = await container.getOrFail(Consumer);
+
+      expect(first).not.toBe(second);
+      expect(first.first).not.toBe(first.second);
+      expect(first.first).not.toBe(second.first);
+    });
+
+    it('Should pass context through a transient to a request dependency', async () => {
+      class RequestDependency {}
+
+      class TransientService {
+        constructor (readonly dependency: RequestDependency) {}
+      }
+
+      container
+        .add(RequestDependency, { scope: InjectScope.REQUEST })
+        .add(TransientService, {
+          scope: InjectScope.TRANSIENT,
+          inject: [RequestDependency],
+        });
+
+      const context = {};
+      const first = await container.getOrFail(TransientService, context);
+      const second = await container.getOrFail(TransientService, context);
+      const third = await container.getOrFail(TransientService, {});
+
+      expect(first).not.toBe(second);
+      expect(first.dependency).toBe(second.dependency);
+      expect(third.dependency).not.toBe(first.dependency);
+      await expect(container.get(TransientService)).rejects.toMatchObject({
+        code: ErrorCode.REQUEST_SCOPE_CONTEXT_REQUIRED,
+      });
+    });
+
+    it('Should keep one transient dependency inside a singleton', async () => {
+      class Dependency {}
+
+      class Consumer {
+        constructor (readonly dependency: Dependency) {}
+      }
+
+      container
+        .add(Dependency, { scope: InjectScope.TRANSIENT })
+        .add(Consumer, { inject: [Dependency] });
+
+      const first = await container.getOrFail(Consumer);
+      const second = await container.getOrFail(Consumer);
+      const direct = await container.getOrFail(Dependency);
+
+      expect(first).toBe(second);
+      expect(first.dependency).toBe(second.dependency);
+      expect(direct).not.toBe(first.dependency);
+    });
+
+
     it('Should reject a direct circular dependency', async () => {
       container.add('A', {
         inject: ['A'],

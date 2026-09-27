@@ -2,6 +2,7 @@
 
 ## [3.0.0] - Unreleased
 
+- Add the `TRANSIENT` scope to create a new value for each resolution or injection, with optional context forwarding to request-scoped dependencies.
 - Cache singleton factory results even when they are `false`, `0`, `''`, `null`, `undefined`, or `NaN`.
 - Preserve the order and duplicates in `inject`, including repeated selectors and different selectors that resolve to the same value.
 - Add regression tests for singleton caching and dependency injection.

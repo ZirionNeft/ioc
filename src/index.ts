@@ -49,7 +49,9 @@ export class Container<Items extends TSelector> {
    *
    * The method throws an error if the `target` is not provided or if the `target` already exists in the storage.
    *
-   * If the `scope` of `provider` is `request`, then a `WeakMap` is also added to the `contextMap` of the `storageEntry`.
+   * Request-scoped providers cache one result per context object. Providers are
+   * singleton-scoped by default, and dependencies may be registered in any order
+   * before the provider is resolved.
    *
    * @template Selector - The type that extends TSelector.
    *
@@ -101,13 +103,15 @@ export class Container<Items extends TSelector> {
   /**
    * This method gets an instance of the class or value associated with the provided selector from the container.
    * It throws an error if the selector has not been registered in the container.
+   * This registration check is synchronous; resolution is asynchronous. A registered
+   * factory may still return null. Request-scoped providers require a context.
    *
    * @template {TSelector} Selector - The type that extends TSelector.
    * @template {Record<any, any>} Context - The type representing the context object provided when the provider is request-scoped.
    * @template {Type} Result - Some value got from container by selector
    *
    * @param {Selector} selector - The class/constructor or value to get from the container.
-   * @param {Context} [context] - Optional context if the requested provider is request-scoped.
+   * @param {Context} [context] - Required for request scope; optional for transient dependencies.
    *
    * @throws {DependencyInjectionError} - If the target has not been registered in the container.
    *
@@ -134,13 +138,15 @@ export class Container<Items extends TSelector> {
   /**
    * This method gets an instance of the class or value associated with the provided selector from the container.
    * It returns null if the selector has not been registered in the container.
+   * A registered factory may also return null. Concurrent requests for the same
+   * singleton or request context share one in-progress resolution.
    *
    * @template {TSelector} Selector - The type that extends TSelector.
    * @template {Record<any, any>} Context - The type representing the context object provided when the provider is request-scoped.
    * @template {Type} Result - Some value got from container by selector
    *
    * @param {Selector} selector - The class/constructor or value to get from the container.
-   * @param {Context} [context] - Optional context if the requested provider is request-scoped.
+   * @param {Context} [context] - Required for request scope; optional for transient dependencies.
    * @returns {Promise<Result | null>} - The instance associated with the selector if it exists, otherwise null.
    */
   async get<
@@ -215,6 +221,16 @@ export class Container<Items extends TSelector> {
         break;
       }
 
+      case InjectScope.TRANSIENT: {
+        this.#assertNoCircularDependencies(selector);
+        resultInstance = await this.#resolveBasedOnKeyKind(
+          selector,
+          storageEntry,
+          context,
+        );
+        break;
+      }
+
       default:
         throw new DependencyInjectionError(
           ErrorCode.UNKNOWN_SCOPE,
@@ -227,8 +243,10 @@ export class Container<Items extends TSelector> {
   }
 
   /**
-   * Run this method after all dependencies registered in the container
-   * @return {Promise<void>}
+   * Run onFinalized hooks for object selectors and singleton classes.
+   * Request-scoped and transient classes are not constructed here.
+   * Call this after registering providers if those hooks are used.
+   * @returns The container after all applicable hooks have completed.
    */
   async finalize (): Promise<Container<Items>> {
     for (const [target, storageEntry] of this.#storage) {
@@ -241,7 +259,7 @@ export class Container<Items extends TSelector> {
       }
 
       if (
-        storageEntry.scope !== InjectScope.REQUEST &&
+        storageEntry.scope === InjectScope.SINGLETON &&
         isClassConstructor(target) &&
         typeof (target as Record<any, any>)?.prototype?.onFinalized ===
           'function'
@@ -255,8 +273,8 @@ export class Container<Items extends TSelector> {
   }
 
   /**
-   * Alias for `finalize()`
-   * @return {Promise<void>}
+   * Alias for `finalize()`.
+   * @returns The container after all applicable hooks have completed.
    */
   async build (): Promise<Container<Items>> {
     return this.finalize();
