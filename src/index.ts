@@ -153,17 +153,23 @@ export class Container<Items extends TSelector> {
 
     switch (storageEntry.scope) {
       case InjectScope.SINGLETON: {
-        if (!storageEntry.initialized) {
-          const instance = await this.#resolveBasedOnKeyKind(
-            selector,
-            storageEntry,
+        if (!storageEntry.valuePromise) {
+          this.#assertNoCircularDependencies(selector);
+          storageEntry.valuePromise = Promise.resolve().then(() =>
+            this.#resolveBasedOnKeyKind(selector, storageEntry),
           );
-
-          storageEntry.value = instance;
-          storageEntry.initialized = true;
         }
 
-        resultInstance = storageEntry.value;
+        const valuePromise = storageEntry.valuePromise;
+
+        try {
+          resultInstance = await valuePromise;
+        } catch (error) {
+          if (storageEntry.valuePromise === valuePromise) {
+            storageEntry.valuePromise = undefined;
+          }
+          throw error;
+        }
 
         break;
       }
@@ -183,17 +189,24 @@ export class Container<Items extends TSelector> {
           InjectScope.REQUEST
         >;
 
-        if (!requestStorageEntry.contextMap.has(context)) {
-          const instance = await this.#resolveBasedOnKeyKind(
-            selector,
-            storageEntry,
-            context,
-          );
+        let valuePromise = requestStorageEntry.contextMap.get(context);
 
-          requestStorageEntry.contextMap.set(context, instance);
+        if (!valuePromise) {
+          this.#assertNoCircularDependencies(selector);
+          valuePromise = Promise.resolve().then(() =>
+            this.#resolveBasedOnKeyKind(selector, storageEntry, context),
+          );
+          requestStorageEntry.contextMap.set(context, valuePromise);
         }
 
-        resultInstance = requestStorageEntry.contextMap.get(context);
+        try {
+          resultInstance = await valuePromise;
+        } catch (error) {
+          if (requestStorageEntry.contextMap.get(context) === valuePromise) {
+            requestStorageEntry.contextMap.delete(context);
+          }
+          throw error;
+        }
         break;
       }
 
@@ -241,6 +254,45 @@ export class Container<Items extends TSelector> {
    */
   async build (): Promise<Container<Items>> {
     return this.finalize();
+  }
+
+  #assertNoCircularDependencies (selector: TSelector): void {
+    const visited = new Set<TSelector>();
+    const active = new Map<TSelector, number>();
+    const path: TSelector[] = [];
+
+    const visit = (target: TSelector): void => {
+      const cycleStart = active.get(target);
+
+      if (cycleStart !== undefined) {
+        const cycle = [...path.slice(cycleStart), target];
+        throw new DependencyInjectionError(
+          ErrorCode.CIRCULAR_DEPENDENCY,
+          `Circular dependency: ${cycle.map(targetName).join(' -> ')}`,
+          selector,
+          target,
+        );
+      }
+
+      if (visited.has(target)) {
+        return;
+      }
+
+      active.set(target, path.length);
+      path.push(target);
+
+      for (const dependency of this.#storage.get(target)?.inject ?? []) {
+        if (this.#storage.has(dependency)) {
+          visit(dependency);
+        }
+      }
+
+      path.pop();
+      active.delete(target);
+      visited.add(target);
+    };
+
+    visit(selector);
   }
 
   async #resolveBasedOnKeyKind<Context extends Record<any, any> = any> (

@@ -133,6 +133,45 @@ describe('Testing "get()" method', () => {
     },
   );
 
+  it('Should create a singleton only once for concurrent requests', async () => {
+    const factory = vi.fn(async () => {
+      await Promise.resolve();
+      return {};
+    });
+
+    container.add('ConcurrentSingleton', { valueFactory: factory });
+
+    const [first, second] = await Promise.all([
+      container.get('ConcurrentSingleton'),
+      container.get('ConcurrentSingleton'),
+    ]);
+
+    expect(factory).toHaveBeenCalledOnce();
+    expect(first).toBe(second);
+  });
+
+  it('Should retry a singleton after concurrent factory failures', async () => {
+    const error = new Error('factory failed');
+    const value = {};
+    const factory = vi.fn()
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(value);
+
+    container.add('RetrySingleton', { valueFactory: factory });
+
+    const failures = await Promise.allSettled([
+      container.get('RetrySingleton'),
+      container.get('RetrySingleton'),
+    ]);
+
+    expect(failures).toEqual([
+      { status: 'rejected', reason: error },
+      { status: 'rejected', reason: error },
+    ]);
+    await expect(container.get('RetrySingleton')).resolves.toBe(value);
+    expect(factory).toHaveBeenCalledTimes(2);
+  });
+
   it('Should handle the request scope appropriately', async () => {
     const target: any = {};
 
@@ -153,6 +192,56 @@ describe('Testing "get()" method', () => {
     await expect(container.get(target, context)).resolves.toEqual(
       'RequestValue',
     );
+  });
+
+  it('Should create one request instance per context for concurrent requests', async () => {
+    const factory = vi.fn(async () => {
+      await Promise.resolve();
+      return {};
+    });
+    const firstContext = {};
+    const secondContext = {};
+
+    container.add('ConcurrentRequest', {
+      scope: InjectScope.REQUEST,
+      valueFactory: factory,
+    });
+
+    const [first, firstAgain, second] = await Promise.all([
+      container.get('ConcurrentRequest', firstContext),
+      container.get('ConcurrentRequest', firstContext),
+      container.get('ConcurrentRequest', secondContext),
+    ]);
+
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(first).toBe(firstAgain);
+    expect(first).not.toBe(second);
+  });
+
+  it('Should retry a request provider after concurrent factory failures', async () => {
+    const error = new Error('factory failed');
+    const value = {};
+    const factory = vi.fn()
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(value);
+    const context = {};
+
+    container.add('RetryRequest', {
+      scope: InjectScope.REQUEST,
+      valueFactory: factory,
+    });
+
+    const failures = await Promise.allSettled([
+      container.get('RetryRequest', context),
+      container.get('RetryRequest', context),
+    ]);
+
+    expect(failures).toEqual([
+      { status: 'rejected', reason: error },
+      { status: 'rejected', reason: error },
+    ]);
+    await expect(container.get('RetryRequest', context)).resolves.toBe(value);
+    expect(factory).toHaveBeenCalledTimes(2);
   });
 
   it('Should throw an error for an unknown scope', async () => {
@@ -252,6 +341,37 @@ describe('Testing "get()" method', () => {
   });
 
   describe('Dependencies injecting', () => {
+    it('Should reject a direct circular dependency', async () => {
+      container.add('A', {
+        inject: ['A'],
+        valueFactory: () => ({}),
+      });
+
+      await expect(container.get('A')).rejects.toMatchObject({
+        code: ErrorCode.CIRCULAR_DEPENDENCY,
+      });
+    });
+
+    it('Should reject an indirect circular dependency', async () => {
+      container
+        .add('A', { inject: ['B'], valueFactory: () => ({}) })
+        .add('B', { inject: ['A'], valueFactory: () => ({}) });
+
+      const results = await Promise.allSettled([
+        container.get('A'),
+        container.get('B'),
+      ]);
+
+      expect(results).toEqual([
+        { status: 'rejected', reason: expect.objectContaining({
+          code: ErrorCode.CIRCULAR_DEPENDENCY,
+        }) },
+        { status: 'rejected', reason: expect.objectContaining({
+          code: ErrorCode.CIRCULAR_DEPENDENCY,
+        }) },
+      ]);
+    });
+
     it('Should properly inject dependency in the singletone class constructor', async () => {
       class TestClass {
         #value: number;

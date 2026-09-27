@@ -47,9 +47,8 @@ export type TStorageEntry<
     ? Record<any, any>
     : never,
 > = {
-  contextMap: Scope extends InjectScope.REQUEST ? WeakMap<Context, any> : never;
-  value?: Value | null;
-  initialized?: boolean;
+  contextMap: Scope extends InjectScope.REQUEST ? WeakMap<Context, Promise<Value>> : never;
+  valuePromise?: Promise<Value>;
 } & TTargetOptions<Dependencies, Scope, Context>;
 
 export type TContainerOptions = {
