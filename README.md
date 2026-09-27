@@ -10,8 +10,11 @@ An IoC (Inversion of Control) implementation using dependency injection for Node
 - [Usage](#usage)
 - [Examples](#examples)
 - [Contributing](#contributing)
+- [Changelog](CHANGELOG.md)
 
 ## Installation
+Environment: NodeJS 20+
+
 You can install the package using **npm** or **yarn**:
 
 ```bash
@@ -25,6 +28,7 @@ yarn add @zirion/ioc
 ## Features
 - Lightweight
 - Multi-platform
+- Circular dependencies check
 - Supports constructor method injection
 - Singleton and request lifetimes
 - Dependency resolution
@@ -34,14 +38,10 @@ yarn add @zirion/ioc
 ### Roadmap:
 - More ways to inject: in properties, method args
 - More lifetimes - transient
-- Circular dependencies check
-- Isolated dependency groups
+- Isolated dependency groups - modules
 - Lazy initialization configuration *(Currently all registered providers are lazy initable)*
 - More lifecycle hooks
 - Decorators Stage-3 support
-- Tests
-- In-code documentation
-- More code examples in repository
 
 ## Usage
 ### Basic Usage

@@ -64,7 +64,8 @@ export type TContainerOptions = {
 
 /**
  * Represents a lifecycle hook that invokes logic when the container
- * is built.
+ * is built. Request-scoped classes are not instantiated during finalization,
+ * so this hook is not called for them.
  */
 export interface IOnFinalized {
   /**

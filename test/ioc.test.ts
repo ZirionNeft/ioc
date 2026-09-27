@@ -60,6 +60,12 @@ describe('Testing "add()" method', () => {
     throw new Error('Test failed');
   });
 
+  it('Should allow an empty string selector', async () => {
+    container.add('', { valueFactory: () => 'empty selector' });
+
+    await expect(container.get('')).resolves.toBe('empty selector');
+  });
+
   it('Should throw an error when the target is already registered', async () => {
     container.add('test');
 
@@ -298,6 +304,14 @@ describe('Testing "get()" method', () => {
       .finalize();
 
     await expect(container.get('aab')).resolves.toBeInstanceOf(TestClass);
+  });
+
+  it('Should return a regular function produced by a factory as a value', async () => {
+    function callback () { return 42; }
+
+    container.add('callback', { valueFactory: () => callback });
+
+    await expect(container.get('callback')).resolves.toBe(callback);
   });
 
   it('Should throw if valueFactory has not properly set', async () => {
@@ -540,6 +554,71 @@ describe('Testing "get()" method', () => {
   });
 
   describe('lifecycle hooks', () => {
+    it('should finalize without creating a request-scoped class', async () => {
+      const constructorSpy = vi.fn();
+
+      class RequestService implements IOnFinalized {
+        constructor () { constructorSpy(); }
+        onFinalized () {}
+      }
+
+      container.add(RequestService, { scope: InjectScope.REQUEST });
+
+      await expect(container.finalize()).resolves.toBe(container);
+      expect(constructorSpy).not.toHaveBeenCalled();
+      await expect(container.get(RequestService, {})).resolves.toBeInstanceOf(RequestService);
+      expect(constructorSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should wait for an asynchronous onInitialized() hook', async () => {
+      let finishHook!: () => void;
+      let hookStarted!: () => void;
+      const hookGate = new Promise<void>((resolve) => { finishHook = resolve; });
+      const started = new Promise<void>((resolve) => { hookStarted = resolve; });
+
+      class AsyncService implements IOnInitialized {
+        ready = false;
+
+        async onInitialized () {
+          hookStarted();
+          await hookGate;
+          this.ready = true;
+        }
+      }
+
+      container.add(AsyncService);
+      const resolution = container.getOrFail(AsyncService);
+      await started;
+
+      let settled = false;
+      void resolution.then(() => { settled = true; });
+      await new Promise((resolve) => { setTimeout(resolve, 0); });
+      expect(settled).toBe(false);
+
+      finishHook();
+      const instance = await resolution;
+      expect(instance.ready).toBe(true);
+    });
+
+    it('should reject and retry when onInitialized() fails', async () => {
+      const error = new Error('initialization failed');
+      let attempts = 0;
+
+      class RetryService implements IOnInitialized {
+        async onInitialized () {
+          if (++attempts === 1) {
+            throw error;
+          }
+        }
+      }
+
+      container.add(RetryService);
+
+      await expect(container.get(RetryService)).rejects.toBe(error);
+      await expect(container.get(RetryService)).resolves.toBeInstanceOf(RetryService);
+      expect(attempts).toBe(2);
+    });
+
     it('should call onFinalized() methods when finalize() called', async () => {
       class Test1 implements IOnFinalized {
         onFinalized () {}

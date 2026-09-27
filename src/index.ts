@@ -18,6 +18,11 @@ export const DEFAULT_OPTIONS: TContainerOptions = {
   logger: ConsoleLoggerImpl,
 };
 
+function isClassValue (value: unknown): value is Type {
+  return typeof value === 'function' &&
+    Object.getOwnPropertyDescriptor(value, 'prototype')?.writable === false;
+}
+
 export class Container<Items extends TSelector> {
   readonly #storage = new Map<TSelector, TStorageEntry<Items>>();
 
@@ -64,7 +69,7 @@ export class Container<Items extends TSelector> {
       ...options,
     } as TTargetOptions<Items>;
 
-    if (!target) {
+    if (target === null || target === undefined) {
       throw new DependencyInjectionError(
         ErrorCode.TARGET_NULL,
         `Provider target '${targetName(target)}' is null or undefined`,
@@ -226,7 +231,7 @@ export class Container<Items extends TSelector> {
    * @return {Promise<void>}
    */
   async finalize (): Promise<Container<Items>> {
-    for (const target of this.#storage.keys()) {
+    for (const [target, storageEntry] of this.#storage) {
       if (
         typeof target === 'object' &&
         typeof (target as Record<any, any>).onFinalized === 'function'
@@ -236,6 +241,7 @@ export class Container<Items extends TSelector> {
       }
 
       if (
+        storageEntry.scope !== InjectScope.REQUEST &&
         isClassConstructor(target) &&
         typeof (target as Record<any, any>)?.prototype?.onFinalized ===
           'function'
@@ -328,7 +334,7 @@ export class Container<Items extends TSelector> {
         context,
       );
 
-      if (isClassConstructor(instanceOrClass)) {
+      if (isClassValue(instanceOrClass)) {
         instance = new instanceOrClass(...targetArgs, context);
       } else {
         instance = instanceOrClass;
@@ -342,7 +348,7 @@ export class Container<Items extends TSelector> {
     }
 
     if (typeof instance?.onInitialized === 'function') {
-      instance.onInitialized();
+      await instance.onInitialized();
     }
 
     return instance;
