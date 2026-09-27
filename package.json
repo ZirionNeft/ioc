@@ -34,7 +34,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rm -rf build && tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json",
+    "build": "rm -rf build && tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json && cp ./config/cjs-package.json ./build/cjs/package.json",
     "lint": "eslint ./src/**/*.ts",
     "test": "vitest --run",
     "coverage": "vitest run --coverage",

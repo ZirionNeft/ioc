@@ -6,3 +6,4 @@
 - Preserve the order and duplicates in `inject`, including repeated selectors and different selectors that resolve to the same value.
 - Add regression tests for singleton caching and dependency injection.
 - Project migrated to TypeScript 6
+- Fix the CommonJS package entry so `require('@zirion/ioc')` loads the built library.
