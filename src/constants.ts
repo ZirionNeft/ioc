@@ -5,7 +5,7 @@ export enum InjectScope {
 }
 
 export const DEFAULT_PROVIDER_OPTIONS = {
-  scope: InjectScope.SINGLETON,
+  scope: InjectScope.TRANSIENT,
 };
 
 export const Container = Symbol('Container');

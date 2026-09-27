@@ -108,6 +108,24 @@ describe('Testing "get()" method', () => {
     await expect(container.get(target)).resolves.toEqual('TestValue');
   });
 
+  it('Should use transient scope by default for classes and factories', async () => {
+    class Service {}
+    const factory = vi.fn(() => ({}));
+
+    container.add(Service).add('value', { valueFactory: factory });
+
+    const [firstClass, secondClass, firstValue, secondValue] = await Promise.all([
+      container.get(Service),
+      container.get(Service),
+      container.get('value'),
+      container.get('value'),
+    ]);
+
+    expect(firstClass).not.toBe(secondClass);
+    expect(firstValue).not.toBe(secondValue);
+    expect(factory).toHaveBeenCalledTimes(2);
+  });
+
   it('Should handle the singleton scope appropriately', async () => {
     const spyFn = vi.fn();
 
@@ -117,7 +135,7 @@ describe('Testing "get()" method', () => {
       }
     }
 
-    await container.add(C).finalize();
+    await container.add(C, { scope: InjectScope.SINGLETON }).finalize();
 
     await container.get(C);
     await container.get(C);
@@ -131,7 +149,7 @@ describe('Testing "get()" method', () => {
     async (value) => {
       const factory = vi.fn(() => value);
 
-      container.add('FalsySingleton', { valueFactory: factory });
+      container.add('FalsySingleton', { valueFactory: factory, scope: InjectScope.SINGLETON });
 
       await expect(container.get('FalsySingleton')).resolves.toBe(value);
       await expect(container.get('FalsySingleton')).resolves.toBe(value);
@@ -142,10 +160,11 @@ describe('Testing "get()" method', () => {
   it('Should create a singleton only once for concurrent requests', async () => {
     const factory = vi.fn(async () => {
       await Promise.resolve();
+
       return {};
     });
 
-    container.add('ConcurrentSingleton', { valueFactory: factory });
+    container.add('ConcurrentSingleton', { valueFactory: factory, scope: InjectScope.SINGLETON });
 
     const [first, second] = await Promise.all([
       container.get('ConcurrentSingleton'),
@@ -163,7 +182,7 @@ describe('Testing "get()" method', () => {
       .mockRejectedValueOnce(error)
       .mockResolvedValue(value);
 
-    container.add('RetrySingleton', { valueFactory: factory });
+    container.add('RetrySingleton', { valueFactory: factory, scope: InjectScope.SINGLETON });
 
     const failures = await Promise.allSettled([
       container.get('RetrySingleton'),
@@ -203,6 +222,7 @@ describe('Testing "get()" method', () => {
   it('Should create one request instance per context for concurrent requests', async () => {
     const factory = vi.fn(async () => {
       await Promise.resolve();
+
       return {};
     });
     const firstContext = {};
@@ -397,6 +417,95 @@ describe('Testing "get()" method', () => {
   });
 
   describe('Dependencies injecting', () => {
+    it('Should start independent injected factories in parallel and preserve order', async () => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const started: string[] = [];
+
+      container
+        .add('A', {
+          valueFactory: async () => {
+            started.push('A');
+            await gate;
+
+            return 'first';
+          },
+        })
+        .add('B', {
+          valueFactory: async () => {
+            started.push('B');
+            await gate;
+
+            return 'second';
+          },
+        })
+        .add('Target', {
+          inject: ['A', 'B'],
+          valueFactory: (dependencies) => dependencies,
+        });
+
+      const resolving = container.get('Target');
+      await new Promise((resolve) => { setTimeout(resolve, 0); });
+      const startedBeforeRelease = [...started];
+      release();
+
+      await expect(resolving).resolves.toEqual(['first', 'second']);
+      expect(startedBeforeRelease).toEqual(['A', 'B']);
+    });
+
+    it('Should validate all dependencies before starting factories', async () => {
+      const factory = vi.fn(() => 'value');
+
+      container
+        .add('A', { valueFactory: factory })
+        .add('Target', {
+          inject: ['A', 'Missing'],
+          valueFactory: (dependencies) => dependencies,
+        });
+
+      await expect(container.get('Target')).rejects.toMatchObject({
+        code: ErrorCode.UNKNOWN_TARGET,
+      });
+      expect(factory).not.toHaveBeenCalled();
+    });
+
+    it('Should recheck cycles when a dependency is registered later', async () => {
+      container.add('A', {
+        inject: ['B'],
+        valueFactory: (dependencies) => dependencies,
+      });
+
+      await expect(container.get('A')).rejects.toMatchObject({
+        code: ErrorCode.UNKNOWN_TARGET,
+      });
+
+      container.add('B', {
+        inject: ['A'],
+        valueFactory: (dependencies) => dependencies,
+      });
+
+      await expect(container.get('A')).rejects.toMatchObject({
+        code: ErrorCode.CIRCULAR_DEPENDENCY,
+      });
+    });
+
+    it('Should keep the inject list captured at registration', async () => {
+      const inject = ['B'];
+
+      container
+        .add('A', {
+          scope: InjectScope.TRANSIENT,
+          inject,
+          valueFactory: (dependencies) => dependencies,
+        })
+        .add('B', { valueFactory: () => 'value' });
+
+      inject[0] = 'A';
+
+      await expect(container.get('A')).resolves.toEqual(['value']);
+    });
+
+
     it('Should create a new transient dependency for each injection', async () => {
       class Dependency {}
 
@@ -458,7 +567,7 @@ describe('Testing "get()" method', () => {
 
       container
         .add(Dependency, { scope: InjectScope.TRANSIENT })
-        .add(Consumer, { inject: [Dependency] });
+        .add(Consumer, { inject: [Dependency], scope: InjectScope.SINGLETON });
 
       const first = await container.getOrFail(Consumer);
       const second = await container.getOrFail(Consumer);
@@ -520,6 +629,7 @@ describe('Testing "get()" method', () => {
         })
         .add(TestClass, {
           inject: ['SomeTarget'],
+          scope: InjectScope.SINGLETON,
         })
         .finalize();
 
@@ -621,6 +731,7 @@ describe('Testing "get()" method', () => {
         })
         .add(TestClass, {
           inject: ['SomeTarget'],
+          scope: InjectScope.SINGLETON,
         })
         .finalize();
 
@@ -748,7 +859,10 @@ describe('Testing "get()" method', () => {
       const spy1 = vi.spyOn(Test1.prototype, 'onFinalized');
       const spy2 = vi.spyOn(Test2.prototype, 'onFinalized');
 
-      await container.add(Test1).add(Test2).finalize();
+      await container
+        .add(Test1, { scope: InjectScope.SINGLETON })
+        .add(Test2, { scope: InjectScope.SINGLETON })
+        .finalize();
 
       expect(spy1).toHaveBeenCalledOnce();
       expect(spy2).toHaveBeenCalledOnce();

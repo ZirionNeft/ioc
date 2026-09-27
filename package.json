@@ -1,7 +1,7 @@
 {
   "name": "@zirion/ioc",
   "description": "IoC implementation using dependency injection",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "packageManager": "yarn@4.17.1",
   "type": "module",
   "keywords": [
@@ -37,13 +37,21 @@
     "build": "rm -rf build && tsc -b ./tsconfig.cjs.json ./tsconfig.esm.json ./tsconfig.types.json && cp ./config/cjs-package.json ./build/cjs/package.json",
     "lint": "eslint ./src/**/*.ts",
     "test": "vitest --run",
+    "typecheck": "tsc --project tsconfig.typecheck.json",
     "coverage": "vitest run --coverage",
-    "prepack": "yarn lint && yarn test --silent",
+    "prepack": "yarn lint && yarn typecheck && yarn test --silent",
     "prepublishOnly": "yarn build",
     "prepare": "husky",
     "lint:staged": "eslint"
   },
-  "homepage": "https://github.com/ZirionNeft/ioc",
+  "homepage": "https://if-else.dev/docs/dependency-injection/",
+  "author": {
+    "name": "Nick Kryukov",
+    "url": "https://if-else.dev/"
+  },
+  "bugs": {
+    "url": "https://github.com/ZirionNeft/ioc/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:ZirionNeft/ioc.git"

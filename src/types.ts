@@ -9,6 +9,27 @@ export type MaybePromise<T> = T | Promise<T>;
 
 export type TSelector = Type | string | symbol | object;
 
+export type TRegistration<Selector extends TSelector, Value> = {
+  selector: Selector;
+  value: Value;
+};
+
+export type TRegisteredValue<Registrations, Selector> =
+  [Registrations] extends [never]
+    ? Selector extends Type<infer Instance> ? Instance : any
+    : Selector extends TSelector
+      ? Registrations extends TRegistration<infer Registered, infer Value>
+        ? Selector extends Registered ? Value : never
+        : never
+      : never;
+
+type TResolvedFactoryValue<Value> = Value extends Type<infer Instance>
+  ? Instance
+  : Value;
+
+export type TFactoryResult<Factory extends (...args: any[]) => any> =
+  TResolvedFactoryValue<Awaited<ReturnType<Factory>>>;
+
 export type TValueFactory<
   Scope extends InjectScope,
   Context,
@@ -32,11 +53,12 @@ export type TTargetOptions<
   valueFactory?: TValueFactory<Scope, Context>;
   /**
    * Selectors to inject in argument order. Repeated selectors are preserved.
+   * The array is copied when the provider is registered.
    */
   inject?: Dependencies[];
   /**
-   * The provider lifetime. Defaults to singleton when omitted. Transient
-   * providers create a new value on each resolution.
+   * The provider lifetime. Defaults to transient when omitted; each resolution
+   * creates a new value. Use `InjectScope.SINGLETON` to reuse one value.
    */
   scope?: Scope;
 };
@@ -49,9 +71,14 @@ export type TStorageEntry<
     ? never
     : Record<any, any>,
 > = {
-  contextMap: Scope extends InjectScope.REQUEST ? WeakMap<Context, Promise<Value>> : never;
-  valuePromise?: Promise<Value>;
+  contextMap: Scope extends InjectScope.REQUEST ? WeakMap<Context, TResolutionCache<Value>> : never;
+  cache?: TResolutionCache<Value>;
+  isConstructor?: boolean;
 } & TTargetOptions<Dependencies, Scope, Context>;
+
+export type TResolutionCache<Value> =
+  | { state: 'ready'; value: Value }
+  | { state: 'pending'; promise: Promise<Value> };
 
 export type TContainerOptions = {
   /**
