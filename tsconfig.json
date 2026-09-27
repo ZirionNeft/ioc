@@ -18,7 +18,6 @@
     "esModuleInterop": true,
     "target": "ES2020",
     "sourceMap": true,
-    "baseUrl": "./",
     "skipLibCheck": true,
     "rootDir": "src",
     "strictNullChecks": true,

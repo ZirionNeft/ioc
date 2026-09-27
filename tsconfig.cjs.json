@@ -9,7 +9,7 @@
     "useDefineForClassFields": false,
     "verbatimModuleSyntax": false,
     "outDir": "build/cjs",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "module": "commonjs"
   }
 }

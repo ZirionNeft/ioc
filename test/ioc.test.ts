@@ -120,6 +120,19 @@ describe('Testing "get()" method', () => {
     expect(spyFn).toHaveBeenCalledOnce();
   });
 
+  it.each([false, 0, '', null, undefined, NaN])(
+    'Should cache the singleton factory result %s',
+    async (value) => {
+      const factory = vi.fn(() => value);
+
+      container.add('FalsySingleton', { valueFactory: factory });
+
+      await expect(container.get('FalsySingleton')).resolves.toBe(value);
+      await expect(container.get('FalsySingleton')).resolves.toBe(value);
+      expect(factory).toHaveBeenCalledOnce();
+    },
+  );
+
   it('Should handle the request scope appropriately', async () => {
     const target: any = {};
 
@@ -280,6 +293,34 @@ describe('Testing "get()" method', () => {
         a: 'test1',
         b: 'test2',
       });
+    });
+
+    it('Should keep repeated selectors in inject order', async () => {
+      container
+        .add('A', { valueFactory: () => 'first' })
+        .add('B', { valueFactory: () => 'second' })
+        .add('Target', {
+          inject: ['A', 'B', 'A'],
+          valueFactory: (dependencies) => dependencies,
+        });
+
+      await expect(container.get('Target')).resolves.toEqual([
+        'first', 'second', 'first',
+      ]);
+    });
+
+    it('Should keep equal values from different selectors', async () => {
+      const shared = {};
+
+      container
+        .add('A', { valueFactory: () => shared })
+        .add('B', { valueFactory: () => shared })
+        .add('Target', {
+          inject: ['A', 'B'],
+          valueFactory: (dependencies) => dependencies,
+        });
+
+      await expect(container.get('Target')).resolves.toEqual([shared, shared]);
     });
 
     it('Should properly inject dependency and context in the request-scoped class constructor', async () => {

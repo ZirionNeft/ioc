@@ -153,13 +153,14 @@ export class Container<Items extends TSelector> {
 
     switch (storageEntry.scope) {
       case InjectScope.SINGLETON: {
-        if (!storageEntry.value) {
+        if (!storageEntry.initialized) {
           const instance = await this.#resolveBasedOnKeyKind(
             selector,
             storageEntry,
           );
 
           storageEntry.value = instance;
+          storageEntry.initialized = true;
         }
 
         resultInstance = storageEntry.value;
@@ -298,8 +299,8 @@ export class Container<Items extends TSelector> {
   async #targetArgsFactory<Context extends Record<any, any> = Record<any, any>> (
     [target, targetOpts]: [TSelector, TTargetOptions<any>],
     context?: Context,
-  ): Promise<Set<any>> {
-    const targetCtorArgs = new Set<any>([]);
+  ): Promise<any[]> {
+    const targetCtorArgs: any[] = [];
 
     if (targetOpts.inject?.length) {
       for (const dependencyTarget of targetOpts.inject) {
@@ -328,7 +329,7 @@ export class Container<Items extends TSelector> {
           context,
         );
 
-        targetCtorArgs.add(dependencyInstance);
+        targetCtorArgs.push(dependencyInstance);
       }
     }
 
