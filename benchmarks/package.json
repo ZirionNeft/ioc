@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "node compare.mjs",
+    "bench:graphs": "node compare-graphs.mjs",
+    "bench:request": "node compare-request.mjs",
+    "bench:http": "node compare-http.mjs"
+  },
+  "dependencies": {
+    "awilix": "13.0.5",
+    "inversify": "8.2.3",
+    "reflect-metadata": "0.2.2",
+    "tsyringe": "4.10.0"
+  }
+}

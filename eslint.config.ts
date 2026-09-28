@@ -12,7 +12,6 @@ export default defineConfig([
     files: ['**/*.{js,cjs,mjs,ts,tsx}'],
     plugins: {
       js,
-      // @ts-expect-error tiny type inconsistency due a version support
       'import-x': importX,
       '@stylistic/ts': stylisticTs,
       'unused-imports': unusedImports,
@@ -174,6 +173,25 @@ export default defineConfig([
       'spaced-comment': 'error',
       'newline-before-return': 'error',
       'indent': 'off',
+    },
+  },
+  {
+    // Benchmark modules are plain JavaScript outside tsconfig.json.
+    files: ['**/*.mjs'],
+    languageOptions: {
+      parserOptions: {
+        project: false,
+      },
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['examples/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 ]);

@@ -1,0 +1,4 @@
+[
+  { "sku": "coffee", "name": { "en": "Coffee", "ru": "Кофе" }, "price": 250 },
+  { "sku": "tea", "name": { "en": "Tea", "ru": "Чай" }, "price": 180 }
+]
