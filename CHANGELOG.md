@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.0.0] - Unreleased
+## [3.0.0] - 2026-10-02
 
 - Cache validated dependency plans and direct registration references for repeated resolution; rebuild plans after a new provider is registered.
 - Resolve classes with zero or one dependency through a direct constructor path, avoiding per-resolution argument arrays and spread calls; retain async dependencies and initialization hooks.
@@ -21,6 +21,7 @@
 - Allow an empty string as a selector and return ordinary functions from factories as values.
 - Await asynchronous `onInitialized` hooks before returning an instance, and retry resolution if a hook fails.
 - On `finalize()` process now skip request-scoped class instances that cannot be created without a context.
+- Add reproducible container benchmarks, migration guides, and TypeScript integration examples for Node HTTP, Express, and Fastify.
 
 ## [2.0.0] - 2026-03-10
 
