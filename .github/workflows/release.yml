@@ -20,7 +20,8 @@ jobs:
       contents: write
       id-token: write
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Yarn's local registry configuration expects this variable; dependencies are public.
+      NPM_TOKEN: ''
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -56,9 +57,10 @@ jobs:
           yarn build
           yarn example:typecheck
           yarn coverage
-      - name: Publish to npm
+      - name: Publish to npm with OIDC
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Clear setup-node's placeholder so publishing uses the trusted publisher.
+          NODE_AUTH_TOKEN: ''
         run: |
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
