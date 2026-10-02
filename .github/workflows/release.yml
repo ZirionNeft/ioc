@@ -53,9 +53,9 @@ jobs:
         run: |
           yarn lint
           yarn typecheck
+          yarn build
           yarn example:typecheck
           yarn coverage
-          yarn build
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
