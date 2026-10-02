@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          const changelog = readFileSync('CHANGELOG.md', 'utf8');
+          assert.equal(process.env.RELEASE_REF_TYPE, 'tag', 'Run releases from a version tag');
+          assert.match(version, /^\d+\.\d+\.\d+$/, 'Only stable releases are supported');
+          assert.equal(process.env.RELEASE_TAG, `v${version}`, 'Tag must match package.json');
+          assert.ok(changelog.includes(`## [${version}] - `), 'Changelog entry is required');
+          assert.ok(!changelog.includes(`## [${version}] - Unreleased`), 'Set the release date');
+          JS
+      - name: Install toolchain and dependencies
+        run: |
+          npm install --global npm@11.12.1
+          corepack enable
+          yarn install --immutable
+      - name: Check and build
+        run: |
+          yarn lint
+          yarn typecheck
+          yarn example:typecheck
+          yarn coverage
+          yarn build
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const { name, version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/${version}`);
+          if (response.status === 404) {
+            execFileSync('npm', ['publish', '--access', 'public', '--tag', 'latest', '--provenance'], { stdio: 'inherit' });
+          } else {
+            assert.ok(response.ok, `Registry returned ${response.status}`);
+            const published = await response.json();
+            assert.equal(published.gitHead, process.env.GITHUB_SHA, 'Version already belongs to another commit');
+            console.log(`${name}@${version} is already published from this commit`);
+          }
+          JS
+      - name: Create GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('node:fs');
+            const { version } = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const tag = `v${version}`;
+            try {
+              await github.rest.repos.getReleaseByTag({ ...context.repo, tag });
+              core.info(`${tag} already has a GitHub Release`);
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            const entry = changelog.split(`## [${version}] - `)[1];
+            const changes = entry.slice(entry.indexOf('\n')).split('\n## [')[0].trim();
+            const { data: notes } = await github.rest.repos.generateReleaseNotes({
+              ...context.repo,
+              tag_name: tag,
+              configuration_file_path: '.github/release.yml',
+            });
+            await github.rest.repos.createRelease({
+              ...context.repo,
+              tag_name: tag,
+              name: tag,
+              body: `${changes}\n\n${notes.body}`,
+              draft: false,
+              prerelease: false,
+              make_latest: 'true',
+            });
