@@ -47,7 +47,7 @@ jobs:
           JS
       - name: Install toolchain and dependencies
         run: |
-          npm install --global npm@11.12.1
+          npm install --global npm@11.19.0
           corepack enable
           yarn install --immutable
       - name: Check and build
@@ -57,27 +57,32 @@ jobs:
           yarn build
           yarn example:typecheck
           yarn coverage
-      - name: Publish to npm with OIDC
+      - name: Stage npm release with OIDC
+        id: npm_release
         env:
           # Clear setup-node's placeholder so publishing uses the trusted publisher.
           NODE_AUTH_TOKEN: ''
         run: |
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
-          import { readFileSync } from 'node:fs';
+          import { appendFileSync, readFileSync } from 'node:fs';
           import { execFileSync } from 'node:child_process';
           const { name, version } = JSON.parse(readFileSync('package.json', 'utf8'));
           const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/${version}`);
           if (response.status === 404) {
-            execFileSync('npm', ['publish', '--access', 'public', '--tag', 'latest', '--provenance'], { stdio: 'inherit' });
+            execFileSync('npm', ['stage', 'publish', '--access', 'public', '--tag', 'latest', '--provenance'], { stdio: 'inherit' });
+            appendFileSync(process.env.GITHUB_OUTPUT, 'published=false\n');
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## npm approval required\n\n${name}@${version} has been staged. Review it in npm's Staged Packages tab and approve it with 2FA. After approval, re-run this workflow from the same tag to create the GitHub Release.\n`);
           } else {
             assert.ok(response.ok, `Registry returned ${response.status}`);
             const published = await response.json();
             assert.equal(published.gitHead, process.env.GITHUB_SHA, 'Version already belongs to another commit');
             console.log(`${name}@${version} is already published from this commit`);
+            appendFileSync(process.env.GITHUB_OUTPUT, 'published=true\n');
           }
           JS
       - name: Create GitHub Release
+        if: steps.npm_release.outputs.published == 'true'
         uses: actions/github-script@v8
         with:
           script: |
