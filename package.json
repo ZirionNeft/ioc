@@ -93,7 +93,7 @@
     "eslint-plugin-unused-imports": "4.4.1",
     "express": "5.2.1",
     "fastify": "5.12.5",
-    "globals": "17.12.0",
+    "globals": "17.13.0",
     "husky": "9.1.7",
     "jiti": "2.7.0",
     "lint-staged": "17.6.0",
